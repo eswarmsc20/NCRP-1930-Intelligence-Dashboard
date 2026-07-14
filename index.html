@@ -101,6 +101,33 @@ body{
   transition:all .15s; display:flex; align-items:center; gap:8px;
 }
 .upload-dropzone:hover, .upload-dropzone.drag{border-color:var(--gold); color:var(--gold-light); background:#c9a22711;}
+
+/* New style for repo load button */
+.repo-load-btn{
+  background:linear-gradient(135deg, #1a472a 0%, #2d6a3f 100%);
+  border:1px solid var(--good);
+  color:#fff;
+  border-radius:6px;
+  padding:10px 18px;
+  cursor:pointer;
+  font-family:var(--font-utility);
+  font-size:11.5px;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  transition:all .15s;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.repo-load-btn:hover{
+  box-shadow:0 0 16px #3aa66b55;
+  transform:translateY(-1px);
+}
+.repo-load-btn.loading{
+  opacity:.7;
+  pointer-events:none;
+}
+
 .upload-status{font-size:11.5px; padding:4px 12px; border-radius:14px; font-family:var(--font-utility); letter-spacing:.4px;}
 .upload-status.ok{background:#3aa66b22; color:var(--good); border:1px solid #3aa66b55;}
 .upload-status.err{background:#c0453a22; color:var(--bad); border:1px solid #c0453a55;}
@@ -210,7 +237,7 @@ body{
 .table-panel{margin-top:14px;}
 .table-toolbar{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:10px;}
 .table-scroll{overflow-x:auto; border:1px solid var(--panel-border); border-radius:8px;}
-table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:1100px;}
+table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:1200px;}
 thead th{
   background:#151d31; color:var(--gold-light); text-align:left; padding:10px 12px; font-family:var(--font-utility);
   font-weight:500; letter-spacing:.6px; text-transform:uppercase; font-size:10.5px; cursor:pointer; white-space:nowrap;
@@ -229,6 +256,7 @@ tbody td{padding:9px 12px; color:var(--text-dim); white-space:nowrap;}
 .status-Rejected{background:#c0453a22; color:var(--bad); border:1px solid #c0453a55;}
 .status-No-Action{background:#5c6785aa; color:#cfd6e5;}
 .fir-yes{color:var(--gold-light); font-weight:600;}
+.ack-no{font-family:'Courier New',monospace; font-size:11.5px; color:var(--gold); letter-spacing:.5px;}
 .row-detail{background:#0e1526;}
 .row-detail td{padding:12px 16px; color:var(--text-dim); font-size:12px; white-space:normal; border-bottom:1px solid #1c2740;}
 .row-detail .rd-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;}
@@ -295,9 +323,18 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
     <div class="up-icon">⇪</div>
     <div class="up-text">
       <h4>Load / update complaints</h4>
-      <p id="uploadDesc">This dashboard ships with no complaint data loaded. Upload your daily/weekly Excel export (the "Total" sheet format — SL NO, Date, Name of the PS, Category of Complaint, Lost/Hold/Refund Amount, Status, etc.) to populate it. Re-upload later to add new complaints and refresh existing ones (matched by Acknowledgement No.). Everything is stored locally in this browser only.</p>
+      <p id="uploadDesc">
+        <strong>Option 1:</strong> Click <strong>"Load from Repository"</strong> to load the Excel file stored in this GitHub repo (data/ folder).<br>
+        <strong>Option 2:</strong> Upload your own Excel/CSV file (Total sheet format — SL NO, Date, Acknowledgement No., PS, Category, Amount, Status, etc.).<br>
+        <strong>Option 3:</strong> Drag & drop an Excel file anywhere on the upload area.<br>
+        All data is stored locally in your browser. Re-uploading refreshes existing records (matched by Acknowledgement No.).
+      </p>
     </div>
     <div class="up-actions">
+      <!-- NEW: Load from Repository button -->
+      <button class="repo-load-btn" id="btnLoadRepo" title="Load Excel file from GitHub repository">
+        📁 Load from Repository
+      </button>
       <label class="upload-dropzone" id="dropZone">
         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
         📂 Choose file or drop here
@@ -327,7 +364,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
     <div class="filter-group" id="mselCaseType"></div>
     <div class="filter-group" id="mselFir"></div>
     <div class="filter-group" style="flex:1; min-width:200px;">
-      <label>Search</label>
+      <label>Search (Name, Phone, Ack No, Address)</label>
       <input class="search-input" id="fSearch" type="text" placeholder="Complainant, phone, ack no, address...">
     </div>
     <div class="filter-group">
@@ -428,6 +465,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
             <th style="width:26px;"></th>
             <th data-k="sl">SL</th>
             <th data-k="date">Date</th>
+            <th data-k="ackNo">Ack No.</th>
             <th data-k="ps">PS</th>
             <th data-k="circle">Circle</th>
             <th data-k="portal">Portal</th>
@@ -488,7 +526,20 @@ window.addEventListener('error', function(e){
   document.body.prepend(el);
 });
 
-// Baseline data - empty by default, users upload their own Excel files
+// ============ CONFIGURATION ============
+// IMPORTANT: Update this to match your GitHub repository
+const GITHUB_USERNAME = 'YOUR_GITHUB_USERNAME';  // <-- CHANGE THIS
+const GITHUB_REPO = 'ncrp-dashboard';             // <-- CHANGE THIS
+const GITHUB_BRANCH = 'main';                      // <-- CHANGE IF NEEDED
+
+// Excel files in the data/ folder of your repository
+const REPO_EXCEL_FILES = [
+  'data/NCRP_Complaints_Data.xlsx',      // Add your file names here
+  'data/Daily_Report.xlsx',              // You can have multiple files
+  // Add more files as needed
+];
+
+// ============ BASELINE DATA ============
 const BASE_DATA = [];
 const STORAGE_KEY = 'ncrp_dashboard_dataset_v1';
 const STORAGE_META_KEY = 'ncrp_dashboard_meta_v1';
@@ -616,6 +667,11 @@ function findHeaderIdx(headers, name){
   const target = norm(name);
   let idx = headers.findIndex(h=> norm(h)===target);
   if(idx>=0) return idx;
+  // Try to find partial match for Acknowledgement No
+  if(name.toLowerCase().includes('acknowledgement')){
+    idx = headers.findIndex(h=> norm(h).includes('acknowledgement') || norm(h).includes('ack'));
+    if(idx>=0) return idx;
+  }
   const targetKey = target.split('(')[0].trim();
   idx = headers.findIndex(h=> norm(h).startsWith(targetKey) && targetKey.length>2);
   return idx;
@@ -642,6 +698,11 @@ function parseWorkbookToRows(workbook){
   const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
   const colIdx = {};
   Object.entries(COLUMN_NAMES).forEach(([key,name])=>{ colIdx[key] = findHeaderIdx(headers, name); });
+  
+  // Debug: Log found column indices
+  console.log('Found column indices:', Object.entries(colIdx).filter(([k,v])=>v>=0).map(([k,v])=>k+': '+v).join(', '));
+  if(colIdx.ackNo < 0) console.warn('⚠️ Acknowledgement No column not found! Available headers:', headers.join(', '));
+  
   const rows = [];
   for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
     const row = aoaRaw[r];
@@ -650,6 +711,12 @@ function parseWorkbookToRows(workbook){
     if(slVal===null || slVal===undefined || cleanStr(slVal)==='') continue;
     const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
     const firNorm = normFir(get('firRaw'));
+    
+    // Log first row's ackNo for debugging
+    if(rows.length === 0) {
+      console.log('First row ackNo raw value:', get('ackNo'));
+    }
+    
     rows.push({
       sl: parseFloat(slVal) || slVal,
       date: parseDateU(get('date')),
@@ -724,6 +791,152 @@ function showToast(title, bodyHtml){
 }
 document.getElementById('toastClose').addEventListener('click', ()=> document.getElementById('uploadToast').classList.remove('show'));
 
+// ============ NEW: Load Excel from GitHub Repository ============
+async function loadExcelFromRepo(filePath) {
+  const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filePath}`;
+  console.log('Fetching from GitHub:', url);
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  } catch (error) {
+    console.error('Failed to fetch from GitHub:', error);
+    throw new Error(`Failed to load ${filePath} from repository. Make sure the file exists and the repository is public.`);
+  }
+}
+
+async function handleRepoLoad() {
+  const btn = document.getElementById('btnLoadRepo');
+  const statusEl = document.getElementById('uploadStatus');
+  
+  // If only one file, load it directly
+  if (REPO_EXCEL_FILES.length === 1) {
+    await loadSingleRepoFile(REPO_EXCEL_FILES[0]);
+    return;
+  }
+  
+  // If multiple files, show selection dialog
+  showFileSelectionDialog();
+}
+
+async function loadSingleRepoFile(filePath) {
+  const btn = document.getElementById('btnLoadRepo');
+  const statusEl = document.getElementById('uploadStatus');
+  
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Loading...';
+  statusEl.style.display = 'inline-block';
+  statusEl.className = 'upload-status';
+  statusEl.textContent = `Fetching ${filePath} from repository...`;
+  
+  try {
+    const data = await loadExcelFromRepo(filePath);
+    const workbook = XLSX.read(data, {type:'array', cellDates:true});
+    const newRows = parseWorkbookToRows(workbook);
+    
+    if(newRows.length === 0) {
+      throw new Error('No complaint rows found in the Excel file. Check the "Total" sheet has data with SL NO column.');
+    }
+    
+    const result = mergeNewRows(newRows);
+    statusEl.className = 'upload-status ok';
+    statusEl.textContent = `✓ ${result.added} new, ${result.updated} updated from ${filePath}`;
+    
+    // Count records with Acknowledgement No
+    const withAck = newRows.filter(r => r.ackNo && r.ackNo.trim()).length;
+    const withoutAck = newRows.length - withAck;
+    
+    showToast('Repository data loaded', 
+      `<b>${result.added}</b> new complaints added and <b>${result.updated}</b> refreshed from <b>${filePath}</b>.<br>
+       Total dataset: <b>${result.total}</b> records.<br>
+       <span style="color:var(--good)">✓ ${withAck} records with Acknowledgement No.</span>
+       ${withoutAck > 0 ? `<br><span style="color:var(--warn)">⚠ ${withoutAck} records without Acknowledgement No.</span>` : ''}
+       <br><span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to export.</span>`
+    );
+    
+  } catch(err) {
+    statusEl.className = 'upload-status err';
+    statusEl.textContent = '✗ ' + err.message;
+    showToast('Repository load failed', 
+      `<span style="color:var(--bad)">${err.message}</span><br>
+       <span style="color:var(--text-faint); font-size:11px;">
+       Tip: Make sure your Excel file is in the 'data/' folder and the repository is public.
+       </span>`
+    );
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '📁 Load from Repository';
+    setTimeout(() => {
+      if(statusEl.textContent.startsWith('✓')) {
+        statusEl.style.display = 'none';
+      }
+    }, 5000);
+  }
+}
+
+function showFileSelectionDialog() {
+  // Create a simple file selection dialog
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed; top:0; left:0; right:0; bottom:0; 
+    background:#000000aa; z-index:1000; 
+    display:flex; align-items:center; justify-content:center;
+  `;
+  
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background:var(--panel); border:1px solid var(--gold); border-radius:12px;
+    padding:24px; max-width:500px; width:90%; color:var(--text);
+    box-shadow:0 20px 40px #00000088;
+  `;
+  
+  dialog.innerHTML = `
+    <h3 style="margin:0 0 8px; color:var(--gold-light); font-family:var(--font-display);">Select Excel File from Repository</h3>
+    <p style="font-size:12px; color:var(--text-dim); margin:0 0 16px;">Choose which Excel file to load from the data/ folder:</p>
+    <div style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;" id="fileList"></div>
+    <div style="margin-top:16px; text-align:right;">
+      <button id="cancelRepoLoad" style="
+        background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim);
+        border-radius:6px; padding:8px 16px; cursor:pointer; font-size:12px; margin-right:8px;
+      ">Cancel</button>
+    </div>
+  `;
+  
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  
+  const fileList = dialog.querySelector('#fileList');
+  REPO_EXCEL_FILES.forEach(filePath => {
+    const btn = document.createElement('button');
+    btn.style.cssText = `
+      background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text);
+      border-radius:6px; padding:10px 14px; cursor:pointer; font-size:13px; text-align:left;
+      transition:all .15s;
+    `;
+    btn.textContent = `📄 ${filePath}`;
+    btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--gold)'; btn.style.color = 'var(--gold-light)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'var(--panel-border)'; btn.style.color = 'var(--text)'; });
+    btn.addEventListener('click', async () => {
+      document.body.removeChild(overlay);
+      await loadSingleRepoFile(filePath);
+    });
+    fileList.appendChild(btn);
+  });
+  
+  dialog.querySelector('#cancelRepoLoad').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+  
+  overlay.addEventListener('click', (e) => {
+    if(e.target === overlay) document.body.removeChild(overlay);
+  });
+}
+
+// ============ EXISTING UPLOAD HANDLERS ============
 function handleUploadFile(file){
   const statusEl = document.getElementById('uploadStatus');
   statusEl.style.display='inline-block'; statusEl.className='upload-status'; statusEl.textContent='Reading '+file.name+'...';
@@ -737,7 +950,13 @@ function handleUploadFile(file){
       const result = mergeNewRows(newRows);
       statusEl.className='upload-status ok';
       statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated';
-      showToast('Dataset updated', '<b>' + result.added + '</b> new complaints added and <b>' + result.updated + '</b> existing records refreshed from <b>' + file.name + '</b>.<br>Total dataset now <b>' + result.total + '</b> records.<br><span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
+      
+      const withAck = newRows.filter(r => r.ackNo && r.ackNo.trim()).length;
+      showToast('Dataset updated', 
+        '<b>' + result.added + '</b> new complaints added and <b>' + result.updated + '</b> existing records refreshed from <b>' + file.name + '</b>.<br>' +
+        'Total dataset now <b>' + result.total + '</b> records.<br>' +
+        '<span style="color:var(--good)">\u2713 ' + withAck + ' records with Acknowledgement No.</span><br>' +
+        '<span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
     }catch(err){
       statusEl.className='upload-status err';
       statusEl.textContent = '\u2717 ' + err.message;
@@ -746,10 +965,15 @@ function handleUploadFile(file){
   };
   reader.readAsArrayBuffer(file);
 }
+
+// Wire up all event listeners
+document.getElementById('btnLoadRepo').addEventListener('click', handleRepoLoad);
+
 document.getElementById('fileInput').addEventListener('change', e=>{
   if(e.target.files.length) handleUploadFile(e.target.files[0]);
   e.target.value='';
 });
+
 const dropZone = document.getElementById('dropZone');
 ['dragover','dragenter'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); }));
 ['dragleave','drop'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); }));
@@ -757,6 +981,7 @@ dropZone.addEventListener('drop', e=>{
   e.preventDefault();
   if(e.dataTransfer.files.length) handleUploadFile(e.dataTransfer.files[0]);
 });
+
 document.getElementById('btnResetData').addEventListener('click', ()=>{
   if(!confirm('Reset to the original baseline dataset? This removes all data merged from your uploads in this browser.')) return;
   DATA = JSON.parse(JSON.stringify(BASE_DATA));
@@ -768,6 +993,7 @@ document.getElementById('btnResetData').addEventListener('click', ()=>{
   updateDatasetChip();
   showToast('Reset complete', 'Dataset restored to the original ' + BASE_DATA.length + ' baseline records.');
 });
+
 document.getElementById('btnBackup').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -776,6 +1002,8 @@ document.getElementById('btnBackup').addEventListener('click', ()=>{
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+// ... (rest of the code remains the same - multiselect, filters, KPIs, charts, table, reports)
 
 /* ============ multiselect component ============ */
 function buildMultiSelect(field, containerId){
@@ -836,6 +1064,7 @@ function buildMultiSelect(field, containerId){
   document.getElementById('none-'+field).addEventListener('click', ()=>{ filters[field]=new Set(options); updateBtnLabel(); renderList(document.getElementById('search-'+field).value); onFiltersChanged(); });
   return { updateBtnLabel, renderList };
 }
+
 const mselRefs = {};
 document.addEventListener('click', ()=>{ document.querySelectorAll('.msel-panel.open').forEach(p=>p.classList.remove('open')); });
 
@@ -895,9 +1124,10 @@ function renderKpis(data){
   const underProcess = data.filter(r=>r.status==='Under Process').length;
   const closed = data.filter(r=>r.status==='Closed').length;
   const firCount = data.filter(r=>r.fir==='Yes').length;
+  const withAckNo = data.filter(r=>r.ackNo && r.ackNo.trim()).length;
 
   const cards = [
-    {label:'Total Complaints', value:fmtNum(total), sub:total? (100*underProcess/total).toFixed(0)+'% under process':'No data', accent:'var(--gold)'},
+    {label:'Total Complaints', value:fmtNum(total), sub:(withAckNo !== total) ? `${withAckNo} with Ack No.` : 'All have Ack No.', accent:'var(--gold)'},
     {label:'Total Lost Amount', value:fmtINR(lost), sub:'Across '+total+' complaints', accent:'var(--bad)'},
     {label:'Amount Held', value:fmtINR(hold), sub:'In banks / wallets', accent:'var(--warn)'},
     {label:'Amount Refunded', value:fmtINR(refund), sub:'Returned to victims', accent:'var(--good)'},
@@ -1090,16 +1320,17 @@ function renderTable(data){
   document.getElementById('tblCount').textContent = fmtNum(sorted.length)+' records';
   const tbody = document.getElementById('tblBody');
   if(pageData.length===0){
-    tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No complaints loaded yet \u2014 upload a daily Excel file above to get started.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="empty-state">No complaints loaded yet \u2014 click "Load from Repository" or upload an Excel file above to get started.</td></tr>';
   } else {
     tbody.innerHTML = pageData.map(r=>{
       const statusCls = 'status-'+slug(r.status);
-      const rowId = 'r'+r.sl+'-'+r.date;
+      const rowId = 'r'+r.sl+'-'+r.date+'-'+(r.ackNo||'');
       const isOpen = expandedRows.has(rowId);
       let html = '<tr>'+
         '<td class="expand-btn" data-row="'+rowId+'">'+(isOpen?'\u2212':'+')+'</td>'+
         '<td>'+(r.sl!=null? Math.round(r.sl):'')+'</td>'+
         '<td>'+(r.date||'-')+'</td>'+
+        '<td class="ack-no">'+(r.ackNo||'<span style="color:var(--warn);font-style:italic;">N/A</span>')+'</td>'+
         '<td>'+r.ps+'</td>'+
         '<td>'+r.circle+'</td>'+
         '<td>'+r.portal+'</td>'+
@@ -1113,11 +1344,11 @@ function renderTable(data){
         '<td>'+(r.days!=null? Math.round(r.days):'-')+'</td>'+
       '</tr>';
       if(isOpen){
-        html += '<tr class="row-detail"><td></td><td colspan="13">'+
+        html += '<tr class="row-detail"><td></td><td colspan="14">'+
           '<div class="rd-grid">'+
             '<div class="rd-item"><b>Complainant</b>'+(r.complainant||'-')+'</div>'+
             '<div class="rd-item"><b>Address</b>'+(r.address||'-')+'</div>'+
-            '<div class="rd-item"><b>Ack No.</b>'+(r.ackNo||'-')+'</div>'+
+            '<div class="rd-item"><b>Ack No.</b>'+(r.ackNo||'<span style="color:var(--warn);">Not Available</span>')+'</div>'+
             '<div class="rd-item"><b>MO</b>'+(r.mo||'-')+'</div>'+
             '<div class="rd-item"><b>Incident Date</b>'+(r.incidentDate||'-')+'</div>'+
             '<div class="rd-item"><b>Timeline</b>'+(r.timeline||'-')+'</div>'+
@@ -1162,7 +1393,7 @@ document.getElementById('pgLast').addEventListener('click', ()=>{ page=999999; r
 /* ============ EXPORT ============ */
 function exportCsv(){
   const data = getFiltered();
-  const cols = ['sl','date','ps','circle','portal','ackNo','complainant','address','category','subcategory','lost','hold','refund','mo','incidentDate','status','actionTaken','dateOfAction','fir','firNo','courtMemo','courtOrder','days','timeline','caseType'];
+  const cols = ['sl','date','ackNo','ps','circle','portal','complainant','address','category','subcategory','lost','hold','refund','mo','incidentDate','status','actionTaken','dateOfAction','fir','firNo','courtMemo','courtOrder','days','timeline','caseType'];
   const header = cols.join(',');
   const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const lines = data.map(r=> cols.map(c=>esc(r[c])).join(','));
@@ -1380,6 +1611,12 @@ FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
 renderReportTabs();
 onFiltersChanged();
 updateDatasetChip();
+
+// Auto-load from repo on first visit if no data exists
+if(DATA.length === 0) {
+  console.log('No data found. You can click "Load from Repository" to load the Excel file from GitHub.');
+  console.log('Available files:', REPO_EXCEL_FILES);
+}
 </script>
 </body>
 </html>
