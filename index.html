@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCRP / 1930 Cyber Complaints Dashboard — Srikakulam District</title>
+<meta name="description" content="NCRP/1930 Cyber Crime Complaints Command Dashboard for Srikakulam District Police Cyber Cell. Monitor complaints, track finances, and generate automated reports.">
+<meta name="keywords" content="NCRP, 1930, cyber crime, dashboard, Srikakulam, police, Andhra Pradesh, fraud tracking">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+</script>
+<style>
+:root{
+  --bg:#0a0e1a;
+  --bg-alt:#0d1220;
+  --panel:#121a2c;
+  --panel-border:#26314d;
+  --maroon:#7d1f2e;
+  --maroon-light:#a52c3d;
+  --maroon-glow:#7d1f2e55;
+  --gold:#c9a227;
+  --gold-light:#e6c667;
+  --text:#e9e8e2;
+  --text-dim:#8d97ad;
+  --text-faint:#5c6785;
+  --good:#3aa66b;
+  --warn:#d99a3d;
+  --bad:#c0453a;
+  --radius:10px;
+  --font-display:'Segoe UI Semibold','Trebuchet MS','Helvetica Neue',Arial,sans-serif;
+  --font-utility:'Segoe UI','Trebuchet MS','Helvetica Neue',Arial,sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+body{
+  background:
+    radial-gradient(ellipse 1200px 600px at 15% -10%, #7d1f2e22 0%, transparent 60%),
+    radial-gradient(ellipse 1000px 500px at 100% 0%, #c9a22715 0%, transparent 55%),
+    var(--bg);
+  min-height:100vh;
+  padding-bottom:60px;
+}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:var(--bg-alt);}
+::-webkit-scrollbar-thumb{background:#2a3653;border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:#39456a;}
+
+.topbar{
+  background:linear-gradient(180deg,#0d1424 0%, #0a0e1a 100%);
+  border-bottom:2px solid var(--gold);
+  padding:18px 28px;
+  position:sticky; top:0; z-index:50;
+  box-shadow:0 8px 24px #00000066;
+}
+.topbar-inner{
+  display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+  max-width:1600px; margin:0 auto;
+}
+.brand{display:flex; align-items:center; gap:14px;}
+.brand-badge{
+  width:46px;height:46px;border-radius:8px;
+  background:linear-gradient(135deg,var(--maroon) 0%,var(--maroon-light) 100%);
+  border:1px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-utility); font-weight:600; color:var(--gold-light); font-size:18px;
+  box-shadow:0 0 18px var(--maroon-glow);
+  flex-shrink:0;
+}
+.brand-text h1{margin:0; font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:.5px; color:var(--text);}
+.brand-text p{margin:1px 0 0; font-family:var(--font-utility); font-size:11.5px; letter-spacing:2px; text-transform:uppercase; color:var(--gold);}
+.header-stats{display:flex; gap:10px; flex-wrap:wrap;}
+.chip{
+  background:var(--panel); border:1px solid var(--panel-border); border-radius:20px;
+  padding:6px 14px; font-size:12.5px; color:var(--text-dim); display:flex; align-items:center; gap:6px;
+  font-family:var(--font-utility); letter-spacing:.5px;
+}
+.chip b{color:var(--gold-light); font-weight:600;}
+.dot{width:7px;height:7px;border-radius:50%; background:var(--good); box-shadow:0 0 8px var(--good);}
+
+.wrap{max-width:1600px; margin:0 auto; padding:0 28px;}
+
+.upload-panel{
+  background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
+  margin-top:20px; padding:16px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.upload-panel .up-icon{
+  width:42px;height:42px;border-radius:8px; flex-shrink:0;
+  background:linear-gradient(135deg,var(--maroon) 0%,var(--maroon-light) 100%);
+  display:flex;align-items:center;justify-content:center; color:var(--gold-light); font-size:18px;
+  border:1px solid var(--gold);
+}
+.upload-panel .up-text{flex:1; min-width:220px;}
+.upload-panel .up-text h4{margin:0 0 2px; font-family:var(--font-display); font-size:15px; color:var(--text);}
+.upload-panel .up-text p{margin:0; font-size:11.5px; color:var(--text-dim);}
+.upload-panel .up-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.upload-dropzone{
+  border:1.5px dashed var(--panel-border); border-radius:8px; padding:10px 18px; cursor:pointer;
+  font-family:var(--font-utility); font-size:11.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--text-dim);
+  transition:all .15s; display:flex; align-items:center; gap:8px;
+}
+.upload-dropzone:hover, .upload-dropzone.drag{border-color:var(--gold); color:var(--gold-light); background:#c9a22711;}
+.upload-status{font-size:11.5px; padding:4px 12px; border-radius:14px; font-family:var(--font-utility); letter-spacing:.4px;}
+.upload-status.ok{background:#3aa66b22; color:var(--good); border:1px solid #3aa66b55;}
+.upload-status.err{background:#c0453a22; color:var(--bad); border:1px solid #c0453a55;}
+.upload-toast{
+  position:fixed; bottom:24px; right:24px; background:#151d31; border:1px solid var(--gold);
+  border-radius:8px; padding:14px 18px; max-width:340px; box-shadow:0 14px 32px #00000088; z-index:200;
+  font-size:12.5px; color:var(--text); display:none;
+}
+.upload-toast.show{display:block; animation:slideIn .25s ease-out;}
+.upload-toast h5{margin:0 0 6px; font-family:var(--font-display); color:var(--gold-light); font-size:14px;}
+.upload-toast button{margin-top:8px; background:none; border:1px solid var(--panel-border); color:var(--text-dim); border-radius:5px; padding:4px 10px; font-size:11px; cursor:pointer;}
+@keyframes slideIn{from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+
+.filterbar{
+  background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
+  margin-top:20px; padding:16px 18px;
+  display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;
+}
+.filter-group{display:flex; flex-direction:column; gap:5px; min-width:150px;}
+.filter-group label{font-family:var(--font-utility); font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-faint);}
+.filter-group input[type=date]{
+  background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px;
+  padding:8px 10px; font-family:var(--font-body); font-size:13px; color-scheme:dark;
+}
+.search-input{
+  background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px;
+  padding:8px 12px; font-family:var(--font-body); font-size:13px; min-width:220px;
+}
+.search-input::placeholder{color:var(--text-faint);}
+.msel{position:relative;}
+.msel-btn{
+  background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px;
+  padding:8px 12px; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-width:150px; font-family:var(--font-body); transition:border-color .15s;
+}
+.msel-btn:hover{border-color:var(--gold);}
+.msel-btn.active-filter{border-color:var(--gold); color:var(--gold-light);}
+.msel-btn svg{width:12px;height:12px;opacity:.6; flex-shrink:0;}
+.msel-panel{
+  position:absolute; top:calc(100% + 6px); left:0; z-index:100;
+  background:#151d31; border:1px solid var(--panel-border); border-radius:8px;
+  width:260px; max-height:320px; display:none; flex-direction:column;
+  box-shadow:0 14px 32px #00000088;
+}
+.msel-panel.open{display:flex;}
+.msel-search{padding:8px; border-bottom:1px solid var(--panel-border);}
+.msel-search input{
+  width:100%; background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text);
+  border-radius:5px; padding:6px 8px; font-size:12.5px;
+}
+.msel-actions{display:flex; gap:6px; padding:6px 8px; border-bottom:1px solid var(--panel-border);}
+.msel-actions button{
+  background:none; border:1px solid var(--panel-border); color:var(--text-dim); border-radius:4px;
+  padding:4px 8px; font-size:11px; cursor:pointer; font-family:var(--font-utility); letter-spacing:.5px;
+}
+.msel-actions button:hover{color:var(--gold-light); border-color:var(--gold);}
+.msel-list{overflow-y:auto; padding:4px 0;}
+.msel-opt{display:flex; align-items:center; gap:8px; padding:6px 12px; font-size:12.5px; cursor:pointer; color:var(--text-dim);}
+.msel-opt:hover{background:#1c2740;}
+.msel-opt input{accent-color:var(--gold);}
+.msel-opt span.cnt{margin-left:auto; color:var(--text-faint); font-size:11px;}
+.msel-opt.checked{color:var(--text);}
+.btn{
+  background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim);
+  border-radius:6px; padding:9px 16px; font-size:12.5px; cursor:pointer;
+  font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase;
+  transition:all .15s; height:36px;
+}
+.btn:hover{border-color:var(--gold); color:var(--gold-light);}
+.btn.primary{
+  background:linear-gradient(135deg,var(--maroon) 0%, var(--maroon-light) 100%);
+  border-color:var(--maroon-light); color:#fff2e0;
+}
+.btn.primary:hover{box-shadow:0 0 16px var(--maroon-glow);}
+.active-tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+.tag{
+  background:#7d1f2e22; border:1px solid var(--maroon-light); color:var(--gold-light);
+  border-radius:14px; padding:4px 10px 4px 12px; font-size:11.5px; display:flex; align-items:center; gap:6px;
+  font-family:var(--font-utility); letter-spacing:.3px;
+}
+.tag button{background:none; border:none; color:var(--gold-light); cursor:pointer; font-size:14px; line-height:1; padding:0;}
+
+.kpi-row{display:grid; grid-template-columns:repeat(7,1fr); gap:12px; margin-top:20px;}
+@media(max-width:1400px){.kpi-row{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:760px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius); padding:16px 16px 14px; position:relative; overflow:hidden;}
+.kpi::before{content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--kpi-accent, var(--gold));}
+.kpi .label{font-family:var(--font-utility); font-size:10.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--text-faint);}
+.kpi .value{font-family:var(--font-display); font-size:26px; font-weight:700; color:var(--text); margin-top:6px; line-height:1;}
+.kpi .sub{font-size:11px; color:var(--text-dim); margin-top:5px;}
+.kpi .sub b{color:var(--good);}
+
+.grid{display:grid; gap:14px; margin-top:14px;}
+.grid.cols-3{grid-template-columns:1.3fr 1fr 1fr;}
+.grid.cols-2{grid-template-columns:1.4fr 1fr;}
+@media(max-width:1100px){.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}}
+.panel{background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius); padding:16px 18px 12px; display:flex; flex-direction:column;}
+.panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.panel-head h3{margin:0; font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--text); letter-spacing:.3px;}
+.panel-head h3 span{color:var(--gold); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; margin-left:8px; text-transform:uppercase;}
+.chart-wrap{position:relative; flex:1; min-height:220px;}
+.chart-wrap.tall{min-height:300px;}
+.toggle-group{display:flex; gap:4px; background:var(--bg-alt); border-radius:6px; padding:3px; border:1px solid var(--panel-border);}
+.toggle-group button{background:none; border:none; color:var(--text-faint); font-size:11px; padding:4px 10px; border-radius:4px; cursor:pointer; font-family:var(--font-utility); letter-spacing:.5px;}
+.toggle-group button.active{background:var(--maroon); color:#fff2e0;}
+
+.table-panel{margin-top:14px;}
+.table-toolbar{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:10px;}
+.table-scroll{overflow-x:auto; border:1px solid var(--panel-border); border-radius:8px;}
+table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:1100px;}
+thead th{
+  background:#151d31; color:var(--gold-light); text-align:left; padding:10px 12px; font-family:var(--font-utility);
+  font-weight:500; letter-spacing:.6px; text-transform:uppercase; font-size:10.5px; cursor:pointer; white-space:nowrap;
+  position:sticky; top:0; border-bottom:1px solid var(--panel-border);
+}
+thead th:hover{color:#fff;}
+thead th .arrow{opacity:.4; font-size:9px; margin-left:3px;}
+tbody tr{border-bottom:1px solid #1c2740;}
+tbody tr:hover{background:#141d33;}
+tbody td{padding:9px 12px; color:var(--text-dim); white-space:nowrap;}
+.status-pill{padding:3px 9px; border-radius:10px; font-size:10.5px; font-family:var(--font-utility); letter-spacing:.4px; text-transform:uppercase; display:inline-block;}
+.status-Under-Process{background:#d99a3d22; color:var(--warn); border:1px solid #d99a3d55;}
+.status-Closed{background:#3aa66b22; color:var(--good); border:1px solid #3aa66b55;}
+.status-Withdrawal{background:#5c6785aa; color:#cfd6e5; border:1px solid #5c678566;}
+.status-FIR-Registered{background:#c0453a22; color:var(--bad); border:1px solid #c0453a55;}
+.status-Rejected{background:#c0453a22; color:var(--bad); border:1px solid #c0453a55;}
+.status-No-Action{background:#5c6785aa; color:#cfd6e5;}
+.fir-yes{color:var(--gold-light); font-weight:600;}
+.row-detail{background:#0e1526;}
+.row-detail td{padding:12px 16px; color:var(--text-dim); font-size:12px; white-space:normal; border-bottom:1px solid #1c2740;}
+.row-detail .rd-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;}
+.row-detail .rd-item b{color:var(--text-faint); display:block; font-family:var(--font-utility); font-size:10px; letter-spacing:1px; text-transform:uppercase; margin-bottom:2px;}
+.expand-btn{cursor:pointer; color:var(--gold); font-weight:700; text-align:center;}
+.pagination{display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:12px; color:var(--text-dim);}
+.pagination .pg-btns{display:flex; gap:6px;}
+.pagination button{background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim); border-radius:5px; padding:5px 10px; cursor:pointer; font-size:12px;}
+.pagination button:disabled{opacity:.35; cursor:default;}
+.pagination button:hover:not(:disabled){border-color:var(--gold); color:var(--gold-light);}
+.footer-note{margin-top:24px; text-align:center; color:var(--text-faint); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase;}
+.empty-state{padding:40px; text-align:center; color:var(--text-faint); font-size:13px;}
+
+.report-tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;}
+.report-tab{background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim); border-radius:6px; padding:8px 14px; font-size:12px; cursor:pointer; font-family:var(--font-utility); letter-spacing:.4px;}
+.report-tab.active{background:var(--maroon); border-color:var(--maroon-light); color:#fff2e0;}
+.report-tab:hover:not(.active){border-color:var(--gold); color:var(--gold-light);}
+.report-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;}
+.report-toolbar h4{margin:0; font-family:var(--font-display); font-size:15px; color:var(--text);}
+.report-toolbar .sub{font-size:11px; color:var(--text-faint); margin-top:2px;}
+table.report-table{width:100%; border-collapse:collapse; font-size:12px; min-width:900px;}
+table.report-table th{
+  background:#151d31; color:var(--gold-light); padding:8px 10px; font-family:var(--font-utility);
+  font-weight:500; font-size:10px; letter-spacing:.4px; text-transform:uppercase; text-align:right; white-space:nowrap;
+  border-bottom:1px solid var(--panel-border); position:sticky; top:0;
+}
+table.report-table th:first-child, table.report-table th:nth-child(2){text-align:left;}
+table.report-table td{padding:7px 10px; text-align:right; color:var(--text-dim); border-bottom:1px solid #1c2740; white-space:nowrap;}
+table.report-table td:first-child, table.report-table td:nth-child(2){text-align:left;}
+table.report-table tr.subtotal-row{background:#17213a; font-weight:600;}
+table.report-table tr.subtotal-row td{color:var(--gold-light);}
+table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-badge">AP</div>
+      <div class="brand-text">
+        <h1>NCRP / 1930 Cyber Complaints — Command View</h1>
+        <p>Srikakulam District Police · Cyber Cell</p>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="chip"><span class="dot"></span> Live filtered dataset</div>
+      <div class="chip">Records <b id="hdrTotal">–</b></div>
+      <div class="chip">Range <b id="hdrRange">–</b></div>
+      <div class="chip">Dataset <b id="hdrDataset">–</b></div>
+    </div>
+  </div>
+</div>
+<div class="upload-toast" id="uploadToast">
+  <h5 id="toastTitle">Update complete</h5>
+  <div id="toastBody"></div>
+  <button id="toastClose">Close</button>
+</div>
+
+<div class="wrap">
+
+  <!-- UPLOAD PANEL -->
+  <div class="upload-panel">
+    <div class="up-icon">⇪</div>
+    <div class="up-text">
+      <h4>Load / update complaints</h4>
+      <p id="uploadDesc">This dashboard ships with no complaint data loaded. Upload your daily/weekly Excel export (the "Total" sheet format — SL NO, Date, Name of the PS, Category of Complaint, Lost/Hold/Refund Amount, Status, etc.) to populate it. Re-upload later to add new complaints and refresh existing ones (matched by Acknowledgement No.). Everything is stored locally in this browser only.</p>
+    </div>
+    <div class="up-actions">
+      <label class="upload-dropzone" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+        📂 Choose file or drop here
+      </label>
+      <span class="upload-status" id="uploadStatus" style="display:none;"></span>
+      <button class="btn" id="btnBackup">Backup JSON</button>
+      <button class="btn" id="btnResetData">Reset to Baseline</button>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filterbar" id="filterBar">
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" id="fDateFrom">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" id="fDateTo">
+    </div>
+    <div class="filter-group" id="mselCircle"></div>
+    <div class="filter-group" id="mselPs"></div>
+    <div class="filter-group" id="mselCategory"></div>
+    <div class="filter-group" id="mselSubcategory"></div>
+    <div class="filter-group" id="mselStatus"></div>
+    <div class="filter-group" id="mselPortal"></div>
+    <div class="filter-group" id="mselCaseType"></div>
+    <div class="filter-group" id="mselFir"></div>
+    <div class="filter-group" style="flex:1; min-width:200px;">
+      <label>Search</label>
+      <input class="search-input" id="fSearch" type="text" placeholder="Complainant, phone, ack no, address...">
+    </div>
+    <div class="filter-group">
+      <label>&nbsp;</label>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="btnReset">Reset Filters</button>
+        <button class="btn primary" id="btnExport">Export CSV</button>
+      </div>
+    </div>
+  </div>
+  <div class="active-tags" id="activeTags"></div>
+
+  <!-- KPI ROW -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- ROW: Trend + Category + Status -->
+  <div class="grid cols-3">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Complaint & Loss Trend <span id="trendSub"></span></h3>
+        <div class="toggle-group" id="trendToggle">
+          <button data-g="day">Daily</button>
+          <button data-g="week">Weekly</button>
+          <button data-g="month" class="active">Monthly</button>
+        </div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="chartTrend"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>By Category</h3></div>
+      <div class="chart-wrap tall"><canvas id="chartCategory"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>By Status</h3></div>
+      <div class="chart-wrap tall"><canvas id="chartStatus"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ROW: Circle + PS + Subcategory -->
+  <div class="grid cols-3">
+    <div class="panel">
+      <div class="panel-head"><h3>Circle-wise Complaints <span>click to filter</span></h3></div>
+      <div class="chart-wrap tall"><canvas id="chartCircle"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Top Police Stations <span>top 15</span></h3></div>
+      <div class="chart-wrap tall"><canvas id="chartPs"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Top Sub-Categories / MO <span>top 10</span></h3></div>
+      <div class="chart-wrap tall"><canvas id="chartSubcat"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ROW: Portal + Case Type + FIR -->
+  <div class="grid cols-3">
+    <div class="panel">
+      <div class="panel-head"><h3>Portal Split</h3></div>
+      <div class="chart-wrap"><canvas id="chartPortal"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Case Type (Loss Band)</h3></div>
+      <div class="chart-wrap"><canvas id="chartCaseType"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>FIR Registration</h3></div>
+      <div class="chart-wrap"><canvas id="chartFir"></canvas></div>
+    </div>
+  </div>
+
+  <!-- FINANCIAL -->
+  <div class="grid cols-2">
+    <div class="panel">
+      <div class="panel-head"><h3>Financial Summary — Lost vs Hold vs Refund (Monthly)</h3></div>
+      <div class="chart-wrap tall"><canvas id="chartFinance"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Recovery Performance by Circle</h3></div>
+      <div class="chart-wrap tall"><canvas id="chartRecovery"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel table-panel">
+    <div class="table-toolbar">
+      <h3 style="font-family:var(--font-display); margin:0; font-size:16px;">Complaint Register <span style="color:var(--gold); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase; margin-left:8px;" id="tblCount"></span></h3>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="font-size:11px; color:var(--text-faint); font-family:var(--font-utility); letter-spacing:1px;">ROWS/PAGE</label>
+        <select id="pageSizeSel" style="background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:5px; padding:5px 8px; font-size:12px;">
+          <option>25</option><option selected>50</option><option>100</option><option>250</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th style="width:26px;"></th>
+            <th data-k="sl">SL</th>
+            <th data-k="date">Date</th>
+            <th data-k="ps">PS</th>
+            <th data-k="circle">Circle</th>
+            <th data-k="portal">Portal</th>
+            <th data-k="category">Category</th>
+            <th data-k="subcategory">Sub-Category</th>
+            <th data-k="lost">Lost (₹)</th>
+            <th data-k="hold">Hold (₹)</th>
+            <th data-k="refund">Refund (₹)</th>
+            <th data-k="status">Status</th>
+            <th data-k="fir">FIR</th>
+            <th data-k="days">Days</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <div id="pgInfo"></div>
+      <div class="pg-btns">
+        <button id="pgFirst">« First</button>
+        <button id="pgPrev">‹ Prev</button>
+        <span id="pgCur" style="padding:5px 10px;"></span>
+        <button id="pgNext">Next ›</button>
+        <button id="pgLast">Last »</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="panel table-panel">
+    <div class="table-toolbar">
+      <h3 style="font-family:var(--font-display); margin:0; font-size:16px;">PS / Circle-wise Reports <span style="color:var(--gold); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase; margin-left:8px;">reflects active filters above</span></h3>
+    </div>
+    <div class="report-tabs" id="reportTabs"></div>
+    <div class="report-toolbar">
+      <div>
+        <h4 id="reportTitle"></h4>
+        <div class="sub" id="reportSub"></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="btnReportExcel">Download Excel</button>
+        <button class="btn primary" id="btnReportPdf">Download PDF</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="report-table" id="reportTable"></table>
+    </div>
+  </div>
+
+  <div class="footer-note">Srikakulam District Cyber Cell · NCRP & 1930 Complaint Analytics · Generated for internal use</div>
+</div>
+
+<script>
+window.addEventListener('error', function(e){
+  const el = document.createElement('div');
+  el.style.cssText = 'background:#c0453a;color:#fff;padding:14px 20px;font-family:monospace;font-size:13px;position:fixed;top:0;left:0;right:0;z-index:9999;';
+  el.textContent = 'Dashboard script error: ' + e.message + ' (line ' + e.lineno + ')';
+  document.body.prepend(el);
+});
+
+// Baseline data - empty by default, users upload their own Excel files
+const BASE_DATA = [];
+const STORAGE_KEY = 'ncrp_dashboard_dataset_v1';
+const STORAGE_META_KEY = 'ncrp_dashboard_meta_v1';
+
+function loadStoredData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed) && parsed.length) return parsed;
+    return null;
+  }catch(e){ return null; }
+}
+function saveStoredData(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
+  catch(e){ console.warn('Could not save to localStorage', e); }
+}
+function loadMeta(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_META_KEY)) || {uploads:[]}; }
+  catch(e){ return {uploads:[]}; }
+}
+function saveMeta(meta){
+  try{ localStorage.setItem(STORAGE_META_KEY, JSON.stringify(meta)); }catch(e){}
+}
+
+let DATA = loadStoredData() || JSON.parse(JSON.stringify(BASE_DATA));
+
+/* ============ helpers ============ */
+const fmtINR = n => '\u20B9' + Math.round(n).toLocaleString('en-IN');
+const fmtNum = n => n.toLocaleString('en-IN');
+function slug(s){return String(s).replace(/[^a-zA-Z0-9]+/g,'-');}
+function uniqSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
+
+const FIELDS = ['circle','ps','category','subcategory','status','portal','caseType','fir'];
+const FIELD_LABEL = {circle:'Circle',ps:'PS',category:'Category',subcategory:'Sub-Category',status:'Status',portal:'Portal',caseType:'Case Type',fir:'FIR'};
+const MSEL_ID_MAP = {circle:'mselCircle', ps:'mselPs', category:'mselCategory', subcategory:'mselSubcategory', status:'mselStatus', portal:'mselPortal', caseType:'mselCaseType', fir:'mselFir'};
+
+let filters = {
+  dateFrom:'', dateTo:'', search:'',
+  circle:new Set(), ps:new Set(), category:new Set(), subcategory:new Set(),
+  status:new Set(), portal:new Set(), caseType:new Set(), fir:new Set()
+};
+
+const optionLists = {};
+function rebuildOptionLists(){
+  FIELDS.forEach(f=>{ optionLists[f] = uniqSorted(DATA.map(r=>r[f])); });
+}
+rebuildOptionLists();
+
+/* ============ upload: parsing & normalization ============ */
+function cleanStr(v){ if(v===null||v===undefined) return ''; return String(v).replace(/\s+/g,' ').trim(); }
+function normCategory(s){
+  s=cleanStr(s); const sl=s.toLowerCase();
+  if(sl.includes('financial')) return 'Online Financial Fraud';
+  if(sl.includes('social')||sl.includes('bullying')) return 'Online & Social Media Related Crime';
+  if(sl.includes('other')) return 'Any Other Cyber Crime';
+  if(sl.includes('gambling')||sl.includes('betting')) return 'Online Gambling / Betting';
+  if(sl.includes('hack')) return 'Hacking / Damage to Computer System';
+  if(sl.includes('trafficking')) return 'Online Cyber Trafficking';
+  if(sl.includes('terrorism')) return 'Cyber Terrorism';
+  if(sl.includes('imperson')) return 'Cheating by Impersonation';
+  if(s==='') return 'Unspecified';
+  return s;
+}
+function normSubcat(s){
+  s=cleanStr(s); const sl=s.toLowerCase();
+  const mapping=[['upi','UPI Related Frauds'],['vishing','Fraud Call / Vishing'],['internet banking','Internet Banking Related Fraud'],
+    ['debit/credit','Debit/Credit Card Fraud/Sim Swap Fraud'],['card fraud','Debit/Credit Card Fraud/Sim Swap Fraud'],['demat','Demat/Depository Fraud'],
+    ['job fraud','Online Job Fraud'],['e-wallet','E-Wallet Related Fraud'],['impersonat','Fake/Impersonating Profile'],
+    ['bullying','Cyber Bullying / Stalking / Sexting'],['stalking','Cyber Bullying / Stalking / Sexting'],['sexting','Cyber Bullying / Stalking / Sexting']];
+  for(const [key,val] of mapping){ if(sl.includes(key)) return val; }
+  if(s==='') return 'Unspecified';
+  if(sl==='other') return 'Other';
+  return s;
+}
+function normCircle(s){
+  s=cleanStr(s); const sl=s.toLowerCase().replace(/\./g,'').replace(/\s+/g,'');
+  const fix={'jrpuramcircle':'J.R.Puram Circle','jrpuram':'J.R.Puram Circle','srikakulamruralcircle':'Srikakulam Rural Circle',
+    'srikakulamrural':'Srikakulam Rural Circle','srikakulamiitown':'Srikakulam II Town','kasibuggaruralcircle':'Kasibugga Rural Circle',
+    'kasibuggaps':'Kasibugga Circle','kasibuggacircle':'Kasibugga Circle','kasibugga':'Kasibugga Circle','ichapuramcircle':'Itchapuram Circle',
+    'itchapuramcircle':'Itchapuram Circle','tekkaliruralcircle':'Tekkali Rural Circle','tekkalips':'Tekkali Circle','narasannapetacircle':'Narasannapeta Circle',
+    'narasannapeta':'Narasannapeta Circle','amadalavalasacircle':'Amadalavalasa Circle','pathapatnamcircle':'Pathapatnam Circle',
+    'sompetacircle':'Sompeta Circle','kothurucircle':'Kothuru Circle'};
+  return fix[sl] || (s || 'Unspecified');
+}
+function normPs(s){ s=cleanStr(s); if(s==='') return 'Unspecified'; return s.toUpperCase().replace(/ {2,}/g,' '); }
+function normStatusU(s){
+  s=cleanStr(s); if(s==='') return 'Unspecified'; const sl=s.toLowerCase();
+  if(sl.includes('withdraw')) return 'Withdrawal';
+  if(sl.includes('closed')) return 'Closed';
+  if(sl.includes('process')) return 'Under Process';
+  if(sl.includes('fir')) return 'FIR Registered';
+  if(sl.includes('reject')) return 'Rejected';
+  if(sl.includes('no action')) return 'No Action';
+  return s.replace(/\w\S*/g, t=>t.charAt(0).toUpperCase()+t.substr(1).toLowerCase());
+}
+function normPortal(s){ s=cleanStr(s); if(s.startsWith('1930')) return '1930 Helpline'; if(s.toUpperCase()==='NCRP') return 'NCRP Portal'; return s || 'Unspecified'; }
+function normCaseType(s){ s=cleanStr(s); return s || 'Unspecified'; }
+function normFir(s){
+  s=cleanStr(s); const sl=s.toLowerCase();
+  const noVals=['nil','no','-','0','0.0','nill','none',''];
+  return noVals.includes(sl) ? 'No' : 'Yes';
+}
+function parseAmountU(v){
+  if(v===null||v===undefined) return 0;
+  if(typeof v==='number') return v;
+  const s=String(v).replace(/,/g,'').trim();
+  if(s===''||['nil','na','none'].includes(s.toLowerCase())) return 0;
+  const n=parseFloat(s); return isNaN(n)?0:n;
+}
+function parseDateU(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  const s=String(v).trim();
+  let m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  const d = new Date(s);
+  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return null;
+}
+function findHeaderIdx(headers, name){
+  const norm = h => cleanStr(h).toLowerCase();
+  const target = norm(name);
+  let idx = headers.findIndex(h=> norm(h)===target);
+  if(idx>=0) return idx;
+  const targetKey = target.split('(')[0].trim();
+  idx = headers.findIndex(h=> norm(h).startsWith(targetKey) && targetKey.length>2);
+  return idx;
+}
+const COLUMN_NAMES = {
+  sl:'SL NO', date:'Date', ps:'Name of the PS', circle:'Circle Name', portal:'NCRP/1930', ackNo:'Acknowledgement No',
+  complainant:'Complaint name & Ph no', age:'Victim Age', address:'Complainant Address', category:'Category of Complaint',
+  subcategory:'Sub Category of Complaint', lost:'Lost Amount', hold:'Hold Amount', refund:'Refund Amount', mo:'MO',
+  incidentDate:'Incident Date', status:'Status', actionTaken:'Action taken by PS', dateOfAction:'Date of Action',
+  firRaw:'Whether FIR is Registered (Cr. No.)', courtMemo:'Court Memo Filed for Refund in FIR Cases (Yes/No)',
+  courtOrder:'Court Order Obtained or Not', days:'No. of Days', timeline:'Time Line', caseType:'case type'
+};
+
+function parseWorkbookToRows(workbook){
+  let sheetName = workbook.SheetNames.find(n=>n.trim().toLowerCase()==='total') || workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:null, dateNF:'yyyy-mm-dd'});
+  const aoaRaw = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+  let headerRowIdx = -1;
+  for(let i=0;i<Math.min(aoa.length,6);i++){
+    if(aoa[i] && aoa[i].some(c=> cleanStr(c).toLowerCase()==='sl no')){ headerRowIdx = i; break; }
+  }
+  if(headerRowIdx===-1) throw new Error('Could not find header row (expected a "SL NO" column) in sheet "'+sheetName+'"');
+  const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
+  const colIdx = {};
+  Object.entries(COLUMN_NAMES).forEach(([key,name])=>{ colIdx[key] = findHeaderIdx(headers, name); });
+  const rows = [];
+  for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
+    const row = aoaRaw[r];
+    if(!row) continue;
+    const slVal = colIdx.sl>=0 ? row[colIdx.sl] : null;
+    if(slVal===null || slVal===undefined || cleanStr(slVal)==='') continue;
+    const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
+    const firNorm = normFir(get('firRaw'));
+    rows.push({
+      sl: parseFloat(slVal) || slVal,
+      date: parseDateU(get('date')),
+      ps: normPs(get('ps')),
+      circle: normCircle(get('circle')),
+      portal: normPortal(get('portal')),
+      ackNo: cleanStr(get('ackNo')),
+      complainant: cleanStr(get('complainant')),
+      age: (typeof get('age')==='number') ? get('age') : null,
+      address: cleanStr(get('address')),
+      category: normCategory(get('category')),
+      subcategory: normSubcat(get('subcategory')),
+      lost: parseAmountU(get('lost')),
+      hold: parseAmountU(get('hold')),
+      refund: parseAmountU(get('refund')),
+      mo: cleanStr(get('mo')),
+      incidentDate: cleanStr(get('incidentDate')),
+      status: normStatusU(get('status')),
+      actionTaken: cleanStr(get('actionTaken')),
+      dateOfAction: cleanStr(get('dateOfAction')),
+      fir: firNorm,
+      firNo: firNorm==='Yes' ? cleanStr(get('firRaw')) : '',
+      courtMemo: cleanStr(get('courtMemo')),
+      courtOrder: cleanStr(get('courtOrder')),
+      days: (typeof get('days')==='number') ? get('days') : null,
+      timeline: cleanStr(get('timeline')),
+      caseType: normCaseType(get('caseType')),
+    });
+  }
+  return rows;
+}
+
+function mergeNewRows(newRows){
+  const keyOf = r => {
+    const ack = cleanStr(r.ackNo);
+    if(ack) return 'ACK::' + ack.toLowerCase();
+    return 'COMP::' + (r.ps+'|'+r.date+'|'+cleanStr(r.complainant)).toLowerCase();
+  };
+  const map = new Map();
+  DATA.forEach(r=> map.set(keyOf(r), r));
+  let added=0, updated=0;
+  newRows.forEach(r=>{
+    const k = keyOf(r);
+    if(map.has(k)) updated++; else added++;
+    map.set(k, r);
+  });
+  DATA = Array.from(map.values());
+  saveStoredData();
+  const meta = loadMeta();
+  meta.uploads.push({ts:new Date().toISOString(), added, updated, fileRows:newRows.length});
+  saveMeta(meta);
+  rebuildOptionLists();
+  FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+  onFiltersChanged();
+  updateDatasetChip();
+  return {added, updated, total: DATA.length};
+}
+
+function updateDatasetChip(){
+  const meta = loadMeta();
+  const uploadsCount = meta.uploads ? meta.uploads.length : 0;
+  const extra = DATA.length - BASE_DATA.length;
+  document.getElementById('hdrDataset').textContent = uploadsCount>0
+    ? `Baseline ${BASE_DATA.length} + ${uploadsCount} upload${uploadsCount>1?'s':''} (${extra>=0?'+':''}${extra})`
+    : `Baseline (${BASE_DATA.length})`;
+}
+
+function showToast(title, bodyHtml){
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastBody').innerHTML = bodyHtml;
+  document.getElementById('uploadToast').classList.add('show');
+}
+document.getElementById('toastClose').addEventListener('click', ()=> document.getElementById('uploadToast').classList.remove('show'));
+
+function handleUploadFile(file){
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.style.display='inline-block'; statusEl.className='upload-status'; statusEl.textContent='Reading '+file.name+'...';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array', cellDates:true});
+      const newRows = parseWorkbookToRows(workbook);
+      if(newRows.length===0){ throw new Error('No complaint rows found — check this is the "Total" sheet with a SL NO column.'); }
+      const result = mergeNewRows(newRows);
+      statusEl.className='upload-status ok';
+      statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated';
+      showToast('Dataset updated', '<b>' + result.added + '</b> new complaints added and <b>' + result.updated + '</b> existing records refreshed from <b>' + file.name + '</b>.<br>Total dataset now <b>' + result.total + '</b> records.<br><span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
+    }catch(err){
+      statusEl.className='upload-status err';
+      statusEl.textContent = '\u2717 ' + err.message;
+      showToast('Upload failed', '<span style="color:var(--bad)">' + err.message + '</span>');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('fileInput').addEventListener('change', e=>{
+  if(e.target.files.length) handleUploadFile(e.target.files[0]);
+  e.target.value='';
+});
+const dropZone = document.getElementById('dropZone');
+['dragover','dragenter'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); }));
+['dragleave','drop'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); }));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault();
+  if(e.dataTransfer.files.length) handleUploadFile(e.dataTransfer.files[0]);
+});
+document.getElementById('btnResetData').addEventListener('click', ()=>{
+  if(!confirm('Reset to the original baseline dataset? This removes all data merged from your uploads in this browser.')) return;
+  DATA = JSON.parse(JSON.stringify(BASE_DATA));
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_META_KEY);
+  rebuildOptionLists();
+  FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+  onFiltersChanged();
+  updateDatasetChip();
+  showToast('Reset complete', 'Dataset restored to the original ' + BASE_DATA.length + ' baseline records.');
+});
+document.getElementById('btnBackup').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download = 'ncrp_dataset_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+/* ============ multiselect component ============ */
+function buildMultiSelect(field, containerId){
+  const container = document.getElementById(containerId);
+  const options = optionLists[field];
+  container.innerHTML = `
+    <label>${FIELD_LABEL[field]}</label>
+    <div class="msel">
+      <button class="msel-btn" id="btn-${field}"><span id="lbl-${field}">All</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="msel-panel" id="panel-${field}">
+        <div class="msel-search"><input type="text" placeholder="Search ${FIELD_LABEL[field].toLowerCase()}..." id="search-${field}"></div>
+        <div class="msel-actions">
+          <button id="all-${field}">All</button>
+          <button id="none-${field}">None</button>
+        </div>
+        <div class="msel-list" id="list-${field}"></div>
+      </div>
+    </div>
+  `;
+  function renderList(filterText){
+    const listEl = document.getElementById('list-'+field);
+    const counts = {};
+    DATA.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
+    listEl.innerHTML = options
+      .filter(o=>!filterText || o.toLowerCase().includes(filterText.toLowerCase()))
+      .map(o=>{
+        const checked = filters[field].has(o);
+        return '<label class="msel-opt '+(checked?'checked':'')+'"><input type="checkbox" data-val="'+encodeURIComponent(o)+'" '+(checked?'checked':'')+'><span>'+o+'</span><span class="cnt">'+(counts[o]||0)+'</span></label>';
+      }).join('');
+    listEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', e=>{
+        const val = decodeURIComponent(e.target.getAttribute('data-val'));
+        if(e.target.checked) filters[field].add(val); else filters[field].delete(val);
+        updateBtnLabel();
+        onFiltersChanged();
+      });
+    });
+  }
+  function updateBtnLabel(){
+    const s = filters[field];
+    const lbl = document.getElementById('lbl-'+field);
+    const btn = document.getElementById('btn-'+field);
+    if(s.size===0){ lbl.textContent='All'; btn.classList.remove('active-filter'); }
+    else if(s.size===1){ lbl.textContent=[...s][0]; btn.classList.add('active-filter'); }
+    else { lbl.textContent=s.size+' selected'; btn.classList.add('active-filter'); }
+  }
+  renderList('');
+  updateBtnLabel();
+  document.getElementById('btn-'+field).addEventListener('click', e=>{
+    e.stopPropagation();
+    document.querySelectorAll('.msel-panel.open').forEach(p=>{ if(p.id!=='panel-'+field) p.classList.remove('open'); });
+    document.getElementById('panel-'+field).classList.toggle('open');
+  });
+  document.getElementById('search-'+field).addEventListener('input', e=> renderList(e.target.value));
+  document.getElementById('all-'+field).addEventListener('click', ()=>{ filters[field]=new Set(); updateBtnLabel(); renderList(document.getElementById('search-'+field).value); onFiltersChanged(); });
+  document.getElementById('none-'+field).addEventListener('click', ()=>{ filters[field]=new Set(options); updateBtnLabel(); renderList(document.getElementById('search-'+field).value); onFiltersChanged(); });
+  return { updateBtnLabel, renderList };
+}
+const mselRefs = {};
+document.addEventListener('click', ()=>{ document.querySelectorAll('.msel-panel.open').forEach(p=>p.classList.remove('open')); });
+
+function toggleFilterValue(field, val){
+  if(filters[field].has(val)) filters[field].delete(val); else filters[field].add(val);
+  if(mselRefs[field]){ mselRefs[field].updateBtnLabel(); mselRefs[field].renderList(''); }
+  onFiltersChanged();
+}
+
+/* ============ filtering ============ */
+function getFiltered(){
+  const df = filters.dateFrom, dt = filters.dateTo;
+  const sTerm = filters.search.trim().toLowerCase();
+  return DATA.filter(r=>{
+    if(df && r.date && r.date < df) return false;
+    if(dt && r.date && r.date > dt) return false;
+    for(const f of FIELDS){
+      if(filters[f].size>0 && !filters[f].has(r[f])) return false;
+    }
+    if(sTerm){
+      const hay = (r.complainant+' '+r.address+' '+r.ackNo+' '+r.actionTaken).toLowerCase();
+      if(!hay.includes(sTerm)) return false;
+    }
+    return true;
+  });
+}
+
+/* ============ active tags ============ */
+function renderActiveTags(){
+  const el = document.getElementById('activeTags');
+  let tags = [];
+  FIELDS.forEach(f=>{ filters[f].forEach(v=> tags.push({f, v, label:FIELD_LABEL[f]+': '+v})); });
+  if(filters.dateFrom) tags.push({f:'dateFrom', v:null, label:'From: '+filters.dateFrom});
+  if(filters.dateTo) tags.push({f:'dateTo', v:null, label:'To: '+filters.dateTo});
+  if(filters.search) tags.push({f:'search', v:null, label:'Search: "'+filters.search+'"'});
+  el.innerHTML = tags.map((t,i)=>'<div class="tag">'+t.label+'<button data-i="'+i+'">\u00D7</button></div>').join('');
+  el.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = tags[+btn.getAttribute('data-i')];
+      if(t.f==='dateFrom'){ filters.dateFrom=''; document.getElementById('fDateFrom').value=''; }
+      else if(t.f==='dateTo'){ filters.dateTo=''; document.getElementById('fDateTo').value=''; }
+      else if(t.f==='search'){ filters.search=''; document.getElementById('fSearch').value=''; }
+      else { filters[t.f].delete(t.v); if(mselRefs[t.f]){mselRefs[t.f].updateBtnLabel(); mselRefs[t.f].renderList('');} }
+      onFiltersChanged();
+    });
+  });
+}
+
+/* ============ KPIs ============ */
+function renderKpis(data){
+  const total = data.length;
+  const lost = data.reduce((s,r)=>s+r.lost,0);
+  const hold = data.reduce((s,r)=>s+r.hold,0);
+  const refund = data.reduce((s,r)=>s+r.refund,0);
+  const recovered = hold+refund;
+  const recoveryRate = lost>0 ? (recovered/lost*100) : 0;
+  const underProcess = data.filter(r=>r.status==='Under Process').length;
+  const closed = data.filter(r=>r.status==='Closed').length;
+  const firCount = data.filter(r=>r.fir==='Yes').length;
+
+  const cards = [
+    {label:'Total Complaints', value:fmtNum(total), sub:total? (100*underProcess/total).toFixed(0)+'% under process':'No data', accent:'var(--gold)'},
+    {label:'Total Lost Amount', value:fmtINR(lost), sub:'Across '+total+' complaints', accent:'var(--bad)'},
+    {label:'Amount Held', value:fmtINR(hold), sub:'In banks / wallets', accent:'var(--warn)'},
+    {label:'Amount Refunded', value:fmtINR(refund), sub:'Returned to victims', accent:'var(--good)'},
+    {label:'Recovery Rate', value:recoveryRate.toFixed(1)+'%', sub:'(Hold+Refund) / Lost', accent:'var(--gold)'},
+    {label:'Under Process', value:fmtNum(underProcess), sub:closed+' closed', accent:'var(--warn)'},
+    {label:'FIR Registered', value:fmtNum(firCount), sub:((firCount/total)*100||0).toFixed(1)+'% of total', accent:'var(--maroon-light)'},
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi" style="--kpi-accent:${c.accent}">
+      <div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div class="sub">${c.sub}</div>
+    </div>`).join('');
+
+  document.getElementById('hdrTotal').textContent = fmtNum(total);
+  const dates = data.map(r=>r.date).filter(Boolean).sort();
+  document.getElementById('hdrRange').textContent = dates.length? dates[0]+' \u2192 '+dates[dates.length-1] : '\u2013';
+}
+
+/* ============ CHARTS ============ */
+Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif";
+Chart.defaults.color = '#8d97ad';
+Chart.defaults.borderColor = '#26314d';
+const PALETTE = ['#c9a227','#7d1f2e','#3aa66b','#4a7fc9','#d99a3d','#a52c3d','#5c6785','#8ec97a','#e6c667','#6a8fd8','#c0453a','#3d9ac9'];
+function colorAt(i){ return PALETTE[i % PALETTE.length]; }
+
+let charts = {};
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+function monthKey(dateStr){ return dateStr ? dateStr.slice(0,7) : 'unknown'; }
+function weekKey(dateStr){
+  if(!dateStr) return 'unknown';
+  const d = new Date(dateStr+'T00:00:00');
+  const onejan = new Date(d.getFullYear(),0,1);
+  const week = Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+  return d.getFullYear()+'-W'+String(week).padStart(2,'0');
+}
+let trendGrouping = 'month';
+function buildTrend(data){
+  const keyFn = trendGrouping==='day' ? (r=>r.date) : trendGrouping==='week' ? (r=>weekKey(r.date)) : (r=>monthKey(r.date));
+  const groups = {};
+  data.forEach(r=>{
+    const k = keyFn(r);
+    if(!groups[k]) groups[k] = {count:0, lost:0};
+    groups[k].count++; groups[k].lost += r.lost;
+  });
+  const keys = Object.keys(groups).filter(k=>k!=='unknown').sort();
+  destroyChart('trend');
+  const ctx = document.getElementById('chartTrend');
+  if(!ctx) return;
+  charts.trend = new Chart(ctx, {
+    data:{
+      labels:keys,
+      datasets:[
+        {type:'bar', label:'Complaints', data:keys.map(k=>groups[k].count), backgroundColor:'#c9a22799', borderRadius:3, yAxisID:'y', order:2},
+        {type:'line', label:'Lost Amount (\u20B9)', data:keys.map(k=>groups[k].lost), borderColor:'#c0453a', backgroundColor:'#c0453a', tension:.3, yAxisID:'y1', order:1, pointRadius:3}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+      scales:{
+        y:{position:'left', grid:{color:'#1c2740'}, title:{display:true, text:'Complaints', color:'#8d97ad'}},
+        y1:{position:'right', grid:{display:false}, title:{display:true, text:'Lost (\u20B9)', color:'#8d97ad'}, ticks:{callback:v=>'\u20B9'+ (v>=100000? (v/100000).toFixed(1)+'L': v)}}
+      },
+      plugins:{legend:{labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=>{
+        if(ctx.dataset.label.includes('Lost')) return 'Lost: '+fmtINR(ctx.parsed.y);
+        return 'Complaints: '+ctx.parsed.y;
+      }}}}
+    }
+  });
+  document.getElementById('trendSub').textContent = trendGrouping+' view';
+}
+function buildDoughnut(canvasId, field, data, topN, chartKey){
+  const counts = {};
+  data.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
+  let entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(topN && entries.length>topN){
+    const top = entries.slice(0,topN);
+    const restSum = entries.slice(topN).reduce((s,e)=>s+e[1],0);
+    entries = restSum>0 ? [...top, ['Other', restSum]] : top;
+  }
+  destroyChart(chartKey);
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  charts[chartKey] = new Chart(ctx, {
+    type:'doughnut',
+    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:entries.map((e,i)=>colorAt(i)), borderColor:'#121a2c', borderWidth:2}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{legend:{position:'right', labels:{boxWidth:10, font:{size:10.5}, color:'#8d97ad'}},
+        tooltip:{callbacks:{label:(ctx)=>' '+ctx.label+': '+ctx.parsed+' ('+(ctx.parsed/data.length*100).toFixed(1)+'%)'}}},
+      onClick:(evt, els)=>{ if(els.length && entries[els[0].index][0]!=='Other'){ toggleFilterValue(field, entries[els[0].index][0]); } }
+    }
+  });
+}
+function buildHBar(canvasId, field, data, topN, chartKey, colorFn){
+  const counts = {};
+  data.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
+  let entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(topN) entries = entries.slice(0,topN);
+  entries.reverse();
+  destroyChart(chartKey);
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  charts[chartKey] = new Chart(ctx, {
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor: colorFn? entries.map((e,i)=>colorFn(i)) : '#c9a227cc', borderRadius:4, barThickness:14}]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{x:{grid:{color:'#1c2740'}}, y:{grid:{display:false}, ticks:{font:{size:10.5}}}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>' '+ctx.parsed.x+' complaints'}}},
+      onClick:(evt, els)=>{ if(els.length){ toggleFilterValue(field, entries[els[0].index][0]); } }
+    }
+  });
+}
+function buildFinance(data){
+  const groups = {};
+  data.forEach(r=>{
+    const k = monthKey(r.date);
+    if(k==='unknown') return;
+    if(!groups[k]) groups[k] = {lost:0, hold:0, refund:0};
+    groups[k].lost += r.lost; groups[k].hold += r.hold; groups[k].refund += r.refund;
+  });
+  const keys = Object.keys(groups).sort();
+  destroyChart('finance');
+  const ctx = document.getElementById('chartFinance');
+  if(!ctx) return;
+  charts.finance = new Chart(ctx, {
+    type:'bar',
+    data:{labels:keys, datasets:[
+      {label:'Lost', data:keys.map(k=>groups[k].lost), backgroundColor:'#c0453acc', borderRadius:3},
+      {label:'Held', data:keys.map(k=>groups[k].hold), backgroundColor:'#d99a3dcc', borderRadius:3},
+      {label:'Refunded', data:keys.map(k=>groups[k].refund), backgroundColor:'#3aa66bcc', borderRadius:3},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{x:{grid:{display:false}}, y:{grid:{color:'#1c2740'}, ticks:{callback:v=>'\u20B9'+(v>=100000?(v/100000).toFixed(1)+'L':v)}}},
+      plugins:{legend:{labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=>' '+ctx.dataset.label+': '+fmtINR(ctx.parsed.y)}}}
+    }
+  });
+}
+function buildRecovery(data){
+  const groups = {};
+  data.forEach(r=>{
+    const k = r.circle;
+    if(!groups[k]) groups[k] = {lost:0, recovered:0};
+    groups[k].lost += r.lost; groups[k].recovered += (r.hold+r.refund);
+  });
+  let entries = Object.entries(groups).filter(([k,v])=>v.lost>0).map(([k,v])=>[k, Math.min(100, v.recovered/v.lost*100)]);
+  entries.sort((a,b)=>b[1]-a[1]);
+  destroyChart('recovery');
+  const ctx = document.getElementById('chartRecovery');
+  if(!ctx) return;
+  charts.recovery = new Chart(ctx, {
+    type:'bar',
+    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1].toFixed(1)), backgroundColor:entries.map(e=> e[1]>50? '#3aa66bcc': e[1]>20? '#d99a3dcc':'#c0453acc'), borderRadius:4, barThickness:14}]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{x:{grid:{color:'#1c2740'}, max:100, ticks:{callback:v=>v+'%'}}, y:{grid:{display:false}, ticks:{font:{size:10.5}}}},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>' Recovery: '+ctx.parsed.x+'%'}}}
+    }
+  });
+}
+function renderCharts(data){
+  buildTrend(data);
+  buildDoughnut('chartCategory','category',data,6,'category');
+  buildHBar('chartStatus','status',data,null,'status', i=>colorAt(i));
+  buildHBar('chartCircle','circle',data,null,'circle');
+  buildHBar('chartPs','ps',data,15,'ps');
+  buildHBar('chartSubcat','subcategory',data,10,'subcat');
+  buildDoughnut('chartPortal','portal',data,null,'portal');
+  buildDoughnut('chartCaseType','caseType',data,null,'casetype');
+  buildDoughnut('chartFir','fir',data,null,'fir');
+  buildFinance(data);
+  buildRecovery(data);
+}
+
+/* ============ TABLE ============ */
+let sortKey='date', sortDir=-1, page=1, pageSize=50, expandedRows=new Set();
+function renderTable(data){
+  const sorted = [...data].sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(av==null) av=''; if(bv==null) bv='';
+    if(typeof av==='number' && typeof bv==='number') return (av-bv)*sortDir;
+    return String(av).localeCompare(String(bv))*sortDir;
+  });
+  const totalPages = Math.max(1, Math.ceil(sorted.length/pageSize));
+  if(page>totalPages) page=totalPages;
+  const startIdx = (page-1)*pageSize;
+  const pageData = sorted.slice(startIdx, startIdx+pageSize);
+  document.getElementById('tblCount').textContent = fmtNum(sorted.length)+' records';
+  const tbody = document.getElementById('tblBody');
+  if(pageData.length===0){
+    tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No complaints loaded yet \u2014 upload a daily Excel file above to get started.</td></tr>';
+  } else {
+    tbody.innerHTML = pageData.map(r=>{
+      const statusCls = 'status-'+slug(r.status);
+      const rowId = 'r'+r.sl+'-'+r.date;
+      const isOpen = expandedRows.has(rowId);
+      let html = '<tr>'+
+        '<td class="expand-btn" data-row="'+rowId+'">'+(isOpen?'\u2212':'+')+'</td>'+
+        '<td>'+(r.sl!=null? Math.round(r.sl):'')+'</td>'+
+        '<td>'+(r.date||'-')+'</td>'+
+        '<td>'+r.ps+'</td>'+
+        '<td>'+r.circle+'</td>'+
+        '<td>'+r.portal+'</td>'+
+        '<td>'+r.category+'</td>'+
+        '<td>'+r.subcategory+'</td>'+
+        '<td>'+(r.lost? fmtINR(r.lost):'-')+'</td>'+
+        '<td>'+(r.hold? fmtINR(r.hold):'-')+'</td>'+
+        '<td>'+(r.refund? fmtINR(r.refund):'-')+'</td>'+
+        '<td><span class="status-pill '+statusCls+'">'+r.status+'</span></td>'+
+        '<td class="'+(r.fir==='Yes'?'fir-yes':'')+'">'+r.fir+(r.firNo? ' ('+r.firNo+')':'')+'</td>'+
+        '<td>'+(r.days!=null? Math.round(r.days):'-')+'</td>'+
+      '</tr>';
+      if(isOpen){
+        html += '<tr class="row-detail"><td></td><td colspan="13">'+
+          '<div class="rd-grid">'+
+            '<div class="rd-item"><b>Complainant</b>'+(r.complainant||'-')+'</div>'+
+            '<div class="rd-item"><b>Address</b>'+(r.address||'-')+'</div>'+
+            '<div class="rd-item"><b>Ack No.</b>'+(r.ackNo||'-')+'</div>'+
+            '<div class="rd-item"><b>MO</b>'+(r.mo||'-')+'</div>'+
+            '<div class="rd-item"><b>Incident Date</b>'+(r.incidentDate||'-')+'</div>'+
+            '<div class="rd-item"><b>Timeline</b>'+(r.timeline||'-')+'</div>'+
+            '<div class="rd-item" style="grid-column:1/-1;"><b>Action Taken by PS</b>'+(r.actionTaken||'-')+'</div>'+
+          '</div>'+
+        '</td></tr>';
+      }
+      return html;
+    }).join('');
+    tbody.querySelectorAll('.expand-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-row');
+        if(expandedRows.has(id)) expandedRows.delete(id); else expandedRows.add(id);
+        renderTable(getFiltered());
+      });
+    });
+  }
+  document.getElementById('pgInfo').textContent = sorted.length? 'Showing '+(startIdx+1)+'\u2013'+Math.min(startIdx+pageData.length, sorted.length)+' of '+sorted.length : '';
+  document.getElementById('pgCur').textContent = 'Page '+page+' / '+totalPages;
+  document.getElementById('pgFirst').disabled = page<=1;
+  document.getElementById('pgPrev').disabled = page<=1;
+  document.getElementById('pgNext').disabled = page>=totalPages;
+  document.getElementById('pgLast').disabled = page>=totalPages;
+  document.querySelectorAll('#dataTable thead th[data-k]').forEach(th=>{
+    const k = th.getAttribute('data-k');
+    th.innerHTML = th.textContent.replace(/\s*[\u25B2\u25BC]\s*$/,'') + (sortKey===k ? '<span class="arrow">'+(sortDir===1?'\u25B2':'\u25BC')+'</span>' : '');
+  });
+}
+document.querySelectorAll('#dataTable thead th[data-k]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.getAttribute('data-k');
+    if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir = (k==='date')? -1: 1; }
+    renderTable(getFiltered());
+  });
+});
+document.getElementById('pageSizeSel').addEventListener('change', e=>{ pageSize=+e.target.value; page=1; renderTable(getFiltered()); });
+document.getElementById('pgFirst').addEventListener('click', ()=>{ page=1; renderTable(getFiltered()); });
+document.getElementById('pgPrev').addEventListener('click', ()=>{ page=Math.max(1,page-1); renderTable(getFiltered()); });
+document.getElementById('pgNext').addEventListener('click', ()=>{ page=page+1; renderTable(getFiltered()); });
+document.getElementById('pgLast').addEventListener('click', ()=>{ page=999999; renderTable(getFiltered()); });
+
+/* ============ EXPORT ============ */
+function exportCsv(){
+  const data = getFiltered();
+  const cols = ['sl','date','ps','circle','portal','ackNo','complainant','address','category','subcategory','lost','hold','refund','mo','incidentDate','status','actionTaken','dateOfAction','fir','firNo','courtMemo','courtOrder','days','timeline','caseType'];
+  const header = cols.join(',');
+  const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const lines = data.map(r=> cols.map(c=>esc(r[c])).join(','));
+  const csv = [header, ...lines].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ncrp_complaints_filtered_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btnExport').addEventListener('click', exportCsv);
+
+/* ============ WIRE UP FILTERS ============ */
+function onFiltersChanged(){
+  page=1;
+  const data = getFiltered();
+  renderActiveTags();
+  renderKpis(data);
+  renderCharts(data);
+  renderTable(data);
+  if(typeof renderActiveReport === 'function') renderActiveReport();
+}
+document.getElementById('fDateFrom').addEventListener('change', e=>{ filters.dateFrom=e.target.value; onFiltersChanged(); });
+document.getElementById('fDateTo').addEventListener('change', e=>{ filters.dateTo=e.target.value; onFiltersChanged(); });
+let searchDebounce;
+document.getElementById('fSearch').addEventListener('input', e=>{
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(()=>{ filters.search=e.target.value; onFiltersChanged(); }, 250);
+});
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  filters = {dateFrom:'', dateTo:'', search:'', circle:new Set(), ps:new Set(), category:new Set(), subcategory:new Set(), status:new Set(), portal:new Set(), caseType:new Set(), fir:new Set()};
+  document.getElementById('fDateFrom').value=''; document.getElementById('fDateTo').value=''; document.getElementById('fSearch').value='';
+  FIELDS.forEach(f=>{ mselRefs[f].updateBtnLabel(); mselRefs[f].renderList(''); });
+  onFiltersChanged();
+});
+document.getElementById('trendToggle').addEventListener('click', e=>{
+  if(e.target.tagName==='BUTTON'){
+    trendGrouping = e.target.getAttribute('data-g');
+    document.querySelectorAll('#trendToggle button').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    buildTrend(getFiltered());
+  }
+});
+
+/* ============ REPORTS ============ */
+function fmtCell(v, money){ return money ? (v? fmtINR(v): '\u20B90') : fmtNum(v); }
+function buildGroupedReport(data, colDefs){
+  const byCircle = {};
+  data.forEach(r=>{
+    (byCircle[r.circle] = byCircle[r.circle] || {});
+    (byCircle[r.circle][r.ps] = byCircle[r.circle][r.ps] || []).push(r);
+  });
+  const rows = [];
+  let sn = 1;
+  Object.keys(byCircle).sort().forEach(circle=>{
+    const psMap = byCircle[circle];
+    const circleRows = [];
+    Object.keys(psMap).sort().forEach(ps=>{
+      const psRows = psMap[ps];
+      const rowObj = {sno:sn++, label:ps, isSubtotal:false};
+      colDefs.forEach(c=> rowObj[c.key] = c.calc(psRows));
+      rows.push(rowObj);
+      circleRows.push(...psRows);
+    });
+    const subtotal = {sno:null, label:circle, isSubtotal:true};
+    colDefs.forEach(c=> subtotal[c.key] = c.calc(circleRows));
+    rows.push(subtotal);
+  });
+  return rows;
+}
+const UP = r => r.status === 'Under Process';
+const STATUS_COLS = [
+  {key:'total', label:'Total', calc:rows=>rows.length},
+  {key:'fir', label:'FIR Registered', calc:rows=>rows.filter(r=>r.status==='FIR Registered').length},
+  {key:'rejected', label:'Rejected', calc:rows=>rows.filter(r=>r.status==='Rejected').length},
+  {key:'nc', label:'NC Registered', calc:rows=>0},
+  {key:'closed', label:'Closed', calc:rows=>rows.filter(r=>r.status==='Closed').length},
+  {key:'noaction', label:'No Action', calc:rows=>rows.filter(r=>r.status==='No Action').length},
+  {key:'withdrawal', label:'Withdrawal', calc:rows=>rows.filter(r=>r.status==='Withdrawal').length},
+  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
+];
+const HOLD_REFUND_COLS = [
+  {key:'total', label:'Total', calc:rows=>rows.length},
+  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.lost,0)},
+  {key:'holdCases', label:'No. Cases Hold', calc:rows=>rows.filter(r=>r.hold>0).length},
+  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.hold,0)},
+  {key:'refundCases', label:'No. Cases Refund', calc:rows=>rows.filter(r=>r.refund>0).length},
+  {key:'refundAmt', label:'Refund Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.refund,0)},
+];
+const TIMELINE_COLS = [
+  {key:'total', label:'Total', calc:rows=>rows.length},
+  {key:'closedFir', label:'Closed/FIR', calc:rows=>rows.filter(r=>r.status==='Closed'||r.status==='FIR Registered').length},
+  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
+  {key:'b1w', label:'Below 1 Week', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days<=7).length},
+  {key:'b2w', label:'Below 2 Weeks', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days>7&&r.days<=14).length},
+  {key:'b1m', label:'Below 1 Month', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days>14&&r.days<=30).length},
+  {key:'a1m', label:'Above 1 Month', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days>30&&r.days<=60).length},
+  {key:'a2m', label:'Above 2 Months', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days>60&&r.days<=90).length},
+  {key:'a3m', label:'Above 3 Months', calc:rows=>rows.filter(r=>UP(r)&&r.days!=null&&r.days>90).length},
+];
+const HOLD_DETAILS_COLS = [
+  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
+  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.lost,0)},
+  {key:'noAck', label:'No. of Ack (Hold)', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).length},
+  {key:'lostAmt2', label:'Lost Amt (Hold cases)', money:true, calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).reduce((s,r)=>s+r.lost,0)},
+  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.hold,0)},
+  {key:'hBelow50k', label:'Below 50,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.hold<50000).length},
+  {key:'h50to1L', label:'50,000-1,00,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>=50000&&r.hold<100000).length},
+  {key:'hAbove1L', label:'Above 1,00,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>=100000).length},
+];
+const LOST_BAND_COLS = [
+  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
+  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.lost,0)},
+  {key:'noAck', label:'No. of Ack (Hold)', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).length},
+  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.hold,0)},
+  {key:'lBelow50k', label:'Below 50,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost<50000).length},
+  {key:'l50to1L', label:'50k-1L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=50000&&r.lost<100000).length},
+  {key:'l1Lto10L', label:'1L-10L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=100000&&r.lost<1000000).length},
+  {key:'lAbove10L', label:'Above 10L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=1000000).length},
+];
+const MO_CATEGORIES = ['Credit Card Fraud','Cyber Sextortion','Dating Fraud','Digital Arrest','E commerse','Fake CustomerCare','Fake Website','Gift Fraud','Investment','Job','Loan App','Online Fraud','OTP Fraud','Part Time Job','Screenshare','Social Media','UPI Related Frauds','Blanks'];
+function classifyMo(moStr){
+  const s = (moStr||'').toLowerCase();
+  if(!s) return 'Blanks';
+  const map = [['credit card','Credit Card Fraud'],['sextortion','Cyber Sextortion'],['dating','Dating Fraud'],['digital arrest','Digital Arrest'],
+    ['e-commerce','E commerse'],['ecommerce','E commerse'],['e commerse','E commerse'],['customer care','Fake CustomerCare'],
+    ['fake website','Fake Website'],['gift','Gift Fraud'],['invest','Investment'],['job','Job'],['loan','Loan App'],
+    ['otp','OTP Fraud'],['part time','Part Time Job'],['screenshare','Screenshare'],['screen share','Screenshare'],
+    ['social media','Social Media'],['upi','UPI Related Frauds'],['online fraud','Online Fraud']];
+  for(const [k,v] of map){ if(s.includes(k)) return v; }
+  return 'Blanks';
+}
+const MO_COLS = [
+  {key:'total', label:'Total', calc:rows=>rows.length},
+  ...MO_CATEGORIES.map(cat=>({key:'mo_'+slug(cat), label:cat, calc:rows=>rows.filter(r=>classifyMo(r.mo)===cat).length}))
+];
+const REPORTS = {
+  status:   {label:'Status Summary', title:'Status of NCRP/1930 Complaints', cols:STATUS_COLS},
+  holdrefund:{label:'Hold & Refund', title:'Status of Hold & Refund Amounts', cols:HOLD_REFUND_COLS},
+  timeline: {label:'Case Ageing Timeline', title:'Status of Under Process Complaints \u2014 Ageing', cols:TIMELINE_COLS},
+  holddetail:{label:'Under Process \u2014 Hold Bands', title:'Under Process Complaints \u2014 Hold Amount Bands', cols:HOLD_DETAILS_COLS},
+  lostband: {label:'Under Process \u2014 Lost Bands', title:'Under Process Complaints \u2014 Lost Amount Bands', cols:LOST_BAND_COLS},
+  mowise:   {label:'MO-wise', title:'Modus Operandi (MO) wise Complaints', cols:MO_COLS},
+};
+let activeReport = 'status';
+function renderReportTabs(){
+  const el = document.getElementById('reportTabs');
+  el.innerHTML = Object.entries(REPORTS).map(([key,r])=>
+    '<button class="report-tab '+(key===activeReport?'active':'')+'" data-report="'+key+'">'+r.label+'</button>'
+  ).join('');
+  el.querySelectorAll('.report-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ activeReport = btn.getAttribute('data-report'); renderReportTabs(); renderActiveReport(); });
+  });
+}
+function renderActiveReport(){
+  const data = getFiltered();
+  const cfg = REPORTS[activeReport];
+  const rows = buildGroupedReport(data, cfg.cols);
+  document.getElementById('reportTitle').textContent = cfg.title;
+  const dates = data.map(r=>r.date).filter(Boolean).sort();
+  document.getElementById('reportSub').textContent = dates.length ? dates[0]+' to '+dates[dates.length-1]+' \u00B7 Generated '+new Date().toLocaleDateString('en-IN') : 'No records in current filter';
+  const table = document.getElementById('reportTable');
+  const headHtml = '<thead><tr><th>S.No</th><th>Name of the PS</th>'+cfg.cols.map(c=>'<th>'+c.label+'</th>').join('')+'</tr></thead>';
+  const bodyHtml = '<tbody>'+rows.map(r=>
+    '<tr class="'+(r.isSubtotal?'subtotal-row':'')+'">'+
+      '<td>'+(r.sno!=null? r.sno : '')+'</td>'+
+      '<td>'+r.label+'</td>'+
+      cfg.cols.map(c=>'<td>'+fmtCell(r[c.key], c.money)+'</td>').join('')+
+    '</tr>').join('')+'</tbody>';
+  table.innerHTML = headHtml + bodyHtml;
+}
+function exportReportExcel(){
+  const data = getFiltered();
+  const cfg = REPORTS[activeReport];
+  const rows = buildGroupedReport(data, cfg.cols);
+  const header = ['S.No','Name of the PS', ...cfg.cols.map(c=>c.label)];
+  const aoa = [ [cfg.title], [], header ];
+  rows.forEach(r=>{ aoa.push([r.sno!=null? r.sno: '', r.label, ...cfg.cols.map(c=>r[c.key])]); });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, cfg.label.slice(0,28));
+  XLSX.writeFile(wb, 'NCRP_'+activeReport+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+function exportReportPdf(){
+  const cfg = REPORTS[activeReport];
+  const tableHtml = document.getElementById('reportTable').outerHTML;
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+cfg.title+'</title>'+
+    '<style>'+
+      'body{font-family:Arial,Helvetica,sans-serif; padding:24px; color:#111;}'+
+      'h1{font-size:18px; margin:0 0 2px;} h2{font-size:12px; font-weight:normal; color:#555; margin:0 0 16px;}'+
+      'table{border-collapse:collapse; width:100%; font-size:11px;}'+
+      'th,td{border:1px solid #999; padding:5px 8px; text-align:right;}'+
+      'th:first-child, td:first-child, th:nth-child(2), td:nth-child(2){text-align:left;}'+
+      'th{background:#eee;}'+
+      'tr.subtotal-row{background:#f0e6c8; font-weight:bold;}'+
+      '.hdr{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:2px solid #7d1f2e; padding-bottom:8px;}'+
+      '.hdr b{color:#7d1f2e;}'+
+    '</style></head><body>'+
+    '<div class="hdr"><div><b>Srikakulam District Police \u2014 Cyber Cell</b><br>NCRP / 1930 Complaint Analytics</div><div>'+new Date().toLocaleString('en-IN')+'</div></div>'+
+    '<h1>'+cfg.title+'</h1>'+
+    '<h2>'+document.getElementById('reportSub').textContent+'</h2>'+
+    tableHtml+
+    '</body></html>');
+  w.document.close();
+  w.onload = ()=>{ w.focus(); w.print(); };
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
+}
+document.getElementById('btnReportExcel').addEventListener('click', exportReportExcel);
+document.getElementById('btnReportPdf').addEventListener('click', exportReportPdf);
+
+/* ============ INIT ============ */
+FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+renderReportTabs();
+onFiltersChanged();
+updateDatasetChip();
+</script>
+</body>
+</html>
