@@ -1,0 +1,5 @@
+mkdir data
+cp your-excel-file.xlsx data/
+git add data/
+git commit -m "Add Excel data file"
+git push
