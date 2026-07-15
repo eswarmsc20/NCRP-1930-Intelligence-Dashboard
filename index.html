@@ -350,9 +350,27 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
         📂 Choose file or drop here
       </label>
+      <button class="btn" id="btnTogglePaste">📋 Paste Data</button>
       <span class="upload-status" id="uploadStatus" style="display:none;"></span>
       <button class="btn" id="btnBackup">Backup JSON</button>
       <button class="btn" id="btnResetData">Reset to Baseline</button>
+    </div>
+  </div>
+
+  <!-- PASTE DATA PANEL (hidden until toggled) -->
+  <div class="upload-panel" id="pastePanel" style="display:none; flex-direction:column; align-items:stretch;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h4 style="margin:0; font-family:var(--font-display); font-size:14px; color:var(--text);">Paste complaint rows</h4>
+      <button class="btn" id="btnClosePaste">Close</button>
+    </div>
+    <p style="margin:0 0 8px; font-size:11.5px; color:var(--text-dim);">
+      Copy the rows straight from Excel or the portal webpage — <b>including the header row</b> — and paste below.
+      Multi-line cells (like combined District/Police Station, or long crime descriptions) are handled automatically.
+    </p>
+    <textarea id="pasteInput" rows="8" style="width:100%; background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px; padding:10px; font-family:'Courier New',monospace; font-size:11.5px; resize:vertical;" placeholder="S No.	Acknowledgement No.	...	(paste here)"></textarea>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="btn primary" id="btnParsePaste">Add Pasted Data</button>
+      <button class="btn" id="btnClearPaste">Clear Box</button>
     </div>
   </div>
 
@@ -791,6 +809,111 @@ function parsePortalFormatRows(aoa, aoaRaw, headerRowIdx){
   return rows;
 }
 
+/* ============ FORMAT 3: raw 1930 portal export with combined/merged columns ============ */
+// Some exports (copy-pasted from the portal UI) merge multiple logical fields into one
+// Excel cell separated by line breaks, e.g. "District\nPolice Station" as a single header
+// with a cell value like "SRIKAKULAM,\nKANCHILI". We detect and split these.
+const COMBINED_PORTAL_HEADER_KEYS = {
+  sl:'s no', ackNo:'acknowledgement no', crimeInfo:'crime aditional information',
+  districtPs:'district police station', categorySub:'category sub category', status:'status',
+  incidentDate:'incident date', complaintDate:'complaint date', lastAction:'last action taken on',
+  complainantCombo:'complainant name mobile no email', address:'complainant address',
+  suspectCombo:'suspect name mobile no', suspectId:'suspect id no', fraudAmount:'fraudulent amount'
+};
+function findComboIdx(headers, targetKey){
+  const normed = headers.map(normHeaderKey);
+  let idx = normed.findIndex(h=> h===targetKey);
+  if(idx>=0) return idx;
+  if(targetKey==='crime aditional information'){
+    idx = normed.findIndex(h=> h.includes('crime') && (h.includes('information')||h.includes('additional')||h.includes('aditional')));
+    if(idx>=0) return idx;
+  }
+  idx = normed.findIndex(h=> h.includes(targetKey));
+  if(idx>=0) return idx;
+  idx = normed.findIndex(h=> targetKey.includes(h) && h.length>3);
+  return idx;
+}
+function isCombinedPortalFormat(headers){
+  const normed = headers.map(normHeaderKey);
+  const hasDistrictPs = normed.some(h=> h==='district police station');
+  const hasCategorySub = normed.some(h=> h==='category sub category');
+  const hasAck = normed.some(h=> h==='acknowledgement no');
+  const hasFraudAmt = normed.some(h=> h.includes('fraudulent amount'));
+  return hasDistrictPs && hasCategorySub && hasAck && hasFraudAmt;
+}
+function splitLinesKeep(v){
+  if(v===null||v===undefined) return [];
+  return String(v).split(/\r?\n/).map(s=>s.trim());
+}
+function parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx){
+  const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
+  const colIdx = {};
+  Object.entries(COMBINED_PORTAL_HEADER_KEYS).forEach(([key,target])=>{ colIdx[key] = findComboIdx(headers, target); });
+  const psToCircle = buildPsToCircleMap();
+  const rows = [];
+  for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
+    const row = aoaRaw[r];
+    if(!row) continue;
+    const slVal = colIdx.sl>=0 ? row[colIdx.sl] : null;
+    const ackVal = colIdx.ackNo>=0 ? row[colIdx.ackNo] : null;
+    if((slVal===null||slVal===undefined||cleanStr(slVal)==='') && (ackVal===null||ackVal===undefined||cleanStr(ackVal)==='')) continue;
+    const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
+
+    // District / Police Station combined cell
+    let dpsParts = splitLinesKeep(get('districtPs')).filter(s=>s!=='');
+    if(dpsParts.length<2){ dpsParts = String(get('districtPs')||'').split(',').map(s=>s.trim()).filter(Boolean); }
+    const psPart = dpsParts.length>1 ? dpsParts[dpsParts.length-1] : (dpsParts[0]||'');
+
+    // Category / Sub Category combined cell
+    const catParts = splitLinesKeep(get('categorySub')).filter(s=>s!=='');
+    const categoryRaw = catParts[0]||'';
+    const subcatRaw = catParts[1]||'';
+
+    // Complainant Name / Mobile / Email combined cell
+    const compParts = splitLinesKeep(get('complainantCombo'));
+    const cName = (compParts[0]||'').trim();
+    const cMobile = (compParts[1]||'').trim();
+    let cEmail = (compParts[2]||'').trim();
+    if(cEmail && (cEmail.toLowerCase()===cName.toLowerCase() || !cEmail.includes('@'))) cEmail = '';
+
+    // Suspect Name / Mobile combined cell (may list multiple numbers)
+    const suspParts = splitLinesKeep(get('suspectCombo'));
+    const suspName = (suspParts[0]||'').trim();
+    const suspMobiles = suspParts.slice(1).map(s=>s.trim()).filter(Boolean).join(', ');
+
+    const psName = normPs(psPart);
+    const lastActionRaw = cleanStr(get('lastAction'));
+    const lastActionDatePart = lastActionRaw ? lastActionRaw.split(' ')[0] : '';
+    const amt = parseAmountU(get('fraudAmount'));
+
+    rows.push({
+      sl: slVal!=null ? (parseFloat(slVal) || slVal) : null,
+      date: parseDateU(get('complaintDate')),
+      ps: psName,
+      circle: psToCircle[psName] || undefined,
+      portal: '1930 Helpline',
+      ackNo: cleanStr(get('ackNo')),
+      complainant: [cName, cMobile].filter(Boolean).join(' — '),
+      address: cleanStr(get('address')),
+      category: normCategory(categoryRaw),
+      subcategory: normSubcat(subcatRaw),
+      lost: amt,
+      mo: cleanStr(get('crimeInfo')),
+      incidentDate: cleanStr(get('incidentDate')),
+      status: normStatusU(get('status')),
+      dateOfAction: parseDateU(lastActionDatePart) || lastActionDatePart,
+      email: cEmail,
+      suspectName: suspName,
+      suspectMobile: suspMobiles,
+      suspectId: cleanStr(get('suspectId')),
+      caseType: amt>=1000000?'Above 10 Lakh':(amt>0?'Below 10 Lakh':'No Loss'),
+      hold: undefined, refund: undefined, fir: undefined, firNo: undefined,
+      courtMemo: undefined, courtOrder: undefined, timeline: undefined, actionTaken: undefined, days: undefined, age: undefined,
+    });
+  }
+  return rows;
+}
+
 function parseTotalFormatRows(aoa, aoaRaw, headerRowIdx){
   const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
   const colIdx = {};
@@ -837,6 +960,23 @@ function parseTotalFormatRows(aoa, aoaRaw, headerRowIdx){
   return rows;
 }
 
+function parseAoaToRows(aoa, aoaRaw, headerRowIdx){
+  const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
+  if(isCombinedPortalFormat(headers)){
+    const rows = parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx);
+    rows._format = 'portal-combined';
+    return rows;
+  }
+  if(isPortalFormat(headers)){
+    const rows = parsePortalFormatRows(aoa, aoaRaw, headerRowIdx);
+    rows._format = 'portal';
+    return rows;
+  }
+  const rows = parseTotalFormatRows(aoa, aoaRaw, headerRowIdx);
+  rows._format = 'total';
+  return rows;
+}
+
 function parseWorkbookToRows(workbook){
   let sheetName = workbook.SheetNames.find(n=>n.trim().toLowerCase()==='total') || workbook.SheetNames[0];
   const ws = workbook.Sheets[sheetName];
@@ -847,15 +987,37 @@ function parseWorkbookToRows(workbook){
     if(aoa[i] && aoa[i].some(c=>{ const cs=cleanStr(c).toLowerCase(); return cs==='sl no' || cs==='s no' || cs==='s no.'; })){ headerRowIdx = i; break; }
   }
   if(headerRowIdx===-1) throw new Error('Could not find a header row (expected "SL NO" or "S No." column) in sheet "'+sheetName+'"');
-  const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
-  if(isPortalFormat(headers)){
-    const rows = parsePortalFormatRows(aoa, aoaRaw, headerRowIdx);
-    rows._format = 'portal';
-    return rows;
-  }
-  const rows = parseTotalFormatRows(aoa, aoaRaw, headerRowIdx);
-  rows._format = 'total';
-  return rows;
+  return parseAoaToRows(aoa, aoaRaw, headerRowIdx);
+}
+
+/* ============ FORMAT: pasted text (copied straight from Excel or the portal webpage) ============ */
+// Reconstructs logical rows from tab-separated pasted text even when a cell's original content
+// spans multiple physical lines (e.g. combined District/PS or a multi-line crime description) —
+// a new row is only started when a physical line begins with a bare serial number (or "S No."/"SL NO"
+// for the header) and actually contains tabs; any other line is treated as a continuation of the
+// previous cell and gets folded back in with its line break preserved.
+function parsePastedText(text){
+  const rawLines = String(text).replace(/\r\n/g,'\n').split('\n');
+  const groups = [];
+  let current = null;
+  rawLines.forEach(line=>{
+    if(line.trim()===''){ if(current) current.push(line); return; }
+    const firstCell = line.split('\t')[0].trim();
+    const looksLikeRowStart = /^\d{1,6}$/.test(firstCell) && line.includes('\t');
+    const looksLikeHeaderStart = /^s\.?\s*no\.?$/i.test(firstCell) || /^sl\s*no\.?$/i.test(firstCell);
+    if((looksLikeRowStart || looksLikeHeaderStart) && line.includes('\t')){
+      if(current!==null) groups.push(current);
+      current = [line];
+    } else {
+      if(current===null) current = [line]; else current.push(line);
+    }
+  });
+  if(current) groups.push(current);
+  if(groups.length<2) throw new Error('Could not detect a header row plus at least one data row. Paste the column headers on the first line and each complaint tab-separated below it.');
+  const cellGroups = groups.map(g=> g.join('\n').split('\t'));
+  let headerIdx = cellGroups.findIndex(g=> /^s\.?\s*no\.?$/i.test((g[0]||'').trim()) || /^sl\s*no\.?$/i.test((g[0]||'').trim()));
+  if(headerIdx===-1) headerIdx = 0;
+  return parseAoaToRows(cellGroups, cellGroups, headerIdx);
 }
 
 /* ============ field-level merge (never clobber existing data with blanks) ============ */
@@ -1030,6 +1192,42 @@ function handleUploadFile(file){
   reader.readAsArrayBuffer(file);
 }
 document.getElementById('btnLoadRepo').addEventListener('click', handleRepoLoad);
+document.getElementById('btnTogglePaste').addEventListener('click', ()=>{
+  const panel = document.getElementById('pastePanel');
+  panel.style.display = panel.style.display==='none' ? 'flex' : 'none';
+});
+document.getElementById('btnClosePaste').addEventListener('click', ()=>{
+  document.getElementById('pastePanel').style.display = 'none';
+});
+document.getElementById('btnClearPaste').addEventListener('click', ()=>{
+  document.getElementById('pasteInput').value = '';
+});
+document.getElementById('btnParsePaste').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('uploadStatus');
+  const text = document.getElementById('pasteInput').value;
+  if(!text || !text.trim()){
+    statusEl.style.display='inline-block'; statusEl.className='upload-status err'; statusEl.textContent='\u2717 Paste box is empty';
+    return;
+  }
+  statusEl.style.display='inline-block'; statusEl.className='upload-status'; statusEl.textContent='Parsing pasted data...';
+  try{
+    const newRows = parsePastedText(text);
+    if(newRows.length===0){ throw new Error('No complaint rows detected in the pasted text.'); }
+    const result = mergeNewRows(newRows);
+    statusEl.className='upload-status ok';
+    statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated ('+result.format+' format)';
+    showToast('Pasted data added',
+      '<b>'+result.added+'</b> new complaints added and <b>'+result.updated+'</b> existing records refreshed (detected as <b>'+result.format+'</b> format).<br>'+
+      'Total dataset now <b>'+result.total+'</b> records.<br>'+
+      '<span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
+    document.getElementById('pasteInput').value = '';
+    document.getElementById('pastePanel').style.display = 'none';
+  }catch(err){
+    statusEl.className='upload-status err';
+    statusEl.textContent = '\u2717 ' + err.message;
+    showToast('Paste parsing failed', '<span style="color:var(--bad)">'+err.message+'</span>');
+  }
+});
 document.getElementById('fileInput').addEventListener('change', e=>{
   if(e.target.files.length) handleUploadFile(e.target.files[0]);
   e.target.value='';
