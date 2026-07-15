@@ -1,4 +1,184 @@
-<!DOCTYPE html>
+import json
+import os
+import random
+
+# Define the mock complaints data
+mock_data = []
+
+# List of real police stations, their circles, and sub-divisions in Srikakulam District (from image specifications)
+ps_circle_subdivision_map = {
+    "SRIKAKULAM I TOWN": ("Srikakulam Rural Circle", "Srikakulam Sub-Division"),
+    "SRIKAKULAM RURAL": ("Srikakulam Rural Circle", "Srikakulam Sub-Division"),
+    "GARA": ("Srikakulam Rural Circle", "Srikakulam Sub-Division"),
+    "SRIKAKULAM II TOWN": ("", "Srikakulam Sub-Division"),
+    "AMADALAVALASA": ("Amadalavalasa Circle", "Srikakulam Sub-Division"),
+    "SARUBUJJILI": ("Amadalavalasa Circle", "Srikakulam Sub-Division"),
+    "BURJA": ("Amadalavalasa Circle", "Srikakulam Sub-Division"),
+    "PONDURU": ("Amadalavalasa Circle", "Srikakulam Sub-Division"),
+    "J.R.PURAM": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "J.R. PURAM": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "RANASTHALAM": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "ETCHERLA": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "LAVERU": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "G. SIGADAM": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "G.SIGADAM": ("J.R.Puram Circle", "Srikakulam Sub-Division"),
+    "TEKKALI PS": ("", "Tekkali Sub-Division"),
+    "TEKKALI": ("", "Tekkali Sub-Division"),
+    "KOTABOMMALI": ("Tekkali Rural Circle", "Tekkali Sub-Division"),
+    "SANTHABOMMALI": ("Tekkali Rural Circle", "Tekkali Sub-Division"),
+    "NAUPADA": ("Tekkali Rural Circle", "Tekkali Sub-Division"),
+    "NANDIGAM": ("Tekkali Rural Circle", "Tekkali Sub-Division"),
+    "NARASANNAPETA": ("Narasannapeta Circle", "Tekkali Sub-Division"),
+    "JALUMURU": ("Narasannapeta Circle", "Tekkali Sub-Division"),
+    "POLAKI": ("Narasannapeta Circle", "Tekkali Sub-Division"),
+    "SARAVAKOTA": ("Narasannapeta Circle", "Tekkali Sub-Division"),
+    "KOTHURU": ("Kothuru Circle", "Tekkali Sub-Division"),
+    "HIRAMANDALAM": ("Kothuru Circle", "Tekkali Sub-Division"),
+    "PATHAPATNAM": ("Pathapatnam Circle", "Tekkali Sub-Division"),
+    "MELIAPUTTI": ("Pathapatnam Circle", "Tekkali Sub-Division"),
+    "BATTILI": ("Kothuru Circle", "Tekkali Sub-Division"),
+    "PALASA": ("Kasibugga Circle", "Kasibugga Sub-Division"),
+    "KASIBUGGA": ("", "Kasibugga Sub-Division"),
+    "VAJRAPUKOTHURU": ("Kasibugga Rural Circle", "Kasibugga Sub-Division"),
+    "MANDASA": ("Kasibugga Rural Circle", "Kasibugga Sub-Division"),
+    "SOMPETA": ("Sompeta Circle", "Kasibugga Sub-Division"),
+    "BARUVA": ("Sompeta Circle", "Kasibugga Sub-Division"),
+    "KANCHILI": ("Sompeta Circle", "Kasibugga Sub-Division"),
+    "ITCHAPURAM TOWN": ("Itchapuram Circle", "Kasibugga Sub-Division"),
+    "ITCHAPURAM RURAL": ("Itchapuram Circle", "Kasibugga Sub-Division"),
+    "ITCHAPURAM": ("Itchapuram Circle", "Kasibugga Sub-Division"),
+    "KAVITI": ("Itchapuram Circle", "Kasibugga Sub-Division"),
+    "MAHILA PS, SRIKAKULAM": ("", ""),
+    "MAHILA PS": ("", ""),
+    "SRIKAKULAM TRAFFIC": ("", "")
+}
+
+random.seed(42)  # For reproducibility
+
+victims = [
+    ("K. Rama Rao", "9848022134"), ("G. Satyanarayana", "9959044812"), ("B. Lakshmi", "7382098711"),
+    ("P. Appa Rao", "8919012345"), ("M. Venkata Ramana", "9440155234"), ("Y. Srinivasa Rao", "8121088934"),
+    ("Ch. Krishna Prasad", "9010077812"), ("T. Murali", "9652033421"), ("V. Anuradha", "7032044567"),
+    ("D. Appala Naidu", "9177055901"), ("S. Chittibabu", "8897066890"), ("R. Gowri Shankar", "9390111222"),
+    ("N. Syamala", "8008012399"), ("K. Dharma Rao", "7997022344"), ("M. Jagadeesh", "9963055443"),
+    ("T. Savitri", "7702088776"), ("A. Bhaskara Rao", "8331033445"), ("K. Janaki", "9550066778"),
+    ("B. Simhachalam", "9701044556"), ("J. Papa Rao", "9133022110"), ("K. Gowri", "9490088990"),
+    ("P. Lokesh", "8142077665"), ("S. Sireesha", "7671044332"), ("R. Trinadh", "9052066887"),
+    ("V. Mohan Rao", "9866033112")
+]
+
+categories = [
+    ("Online Financial Fraud", [
+        ("UPI Related Frauds", "UPI fraud via fake QR code / lottery scan link"),
+        ("Fraud Call / Vishing", "Vishing call claiming bank KYC update required"),
+        ("Internet Banking Related Fraud", "Phishing link for bank credential harvesting"),
+        ("Debit/Credit Card Fraud/Sim Swap Fraud", "Card cloning / OTP fraud via call"),
+        ("Online Job Fraud", "Telegram rating tasks job fraud promising high return"),
+        ("E-Wallet Related Fraud", "Wallet balance transfer via unauthorized access"),
+        ("Demat/Depository Fraud", "Fake stock trading investment group recommendations")
+    ]),
+    ("Online & Social Media Related Crime", [
+        ("Fake/Impersonating Profile", "Impersonation of complainant on Instagram to ask money"),
+        ("Cyber Bullying / Stalking / Sexting", "Harassment & blackmailing using morph photo")
+    ]),
+    ("Any Other Cyber Crime", [
+        ("Other", "Email hacking and unauthorized digital access")
+    ])
+]
+
+statuses = ["Closed", "Under Process", "FIR Registered", "Rejected", "Withdrawal"]
+
+# Generate 65 realistic entries
+for i in range(1, 66):
+    days_offset = i * 3
+    date_obj = f"2026-{((days_offset//30)%6)+1:02d}-{((days_offset)%28)+1:02d}"
+    
+    ps = random.choice(list(ps_circle_subdivision_map.keys()))
+    circle, subdivision = ps_circle_subdivision_map[ps]
+    
+    portal = random.choice(["1930 Helpline", "NCRP Portal"])
+    ack_no = f"3150{random.randint(1000000000, 9999999999)}"
+    
+    vic_name, vic_ph = random.choice(victims)
+    complainant = f"{vic_name} ({vic_ph})"
+    age = random.randint(19, 68)
+    address = f"D.No. {random.randint(1,40)}-{random.randint(1,100)}, {ps.capitalize()}, Srikakulam District"
+    
+    cat, subcat_list = random.choice(categories)
+    subcat, mo_tmpl = random.choice(subcat_list)
+    mo = f"{mo_tmpl} - Complainant lost money on {date_obj}"
+    
+    status = random.choices(statuses, weights=[40, 30, 15, 10, 5])[0]
+    
+    # Financials
+    if cat == "Online Financial Fraud":
+        lost = random.randint(3000, 450000)
+        lost = (lost // 100) * 100
+        if status in ["Closed", "Withdrawal", "Rejected"]:
+            hold = random.choice([0, random.randint(1000, lost // 2)])
+            refund = lost - hold if status == "Closed" and random.random() > 0.6 else 0
+        else:
+            hold = random.choice([0, random.randint(2000, lost // 3)])
+            refund = 0
+            
+        hold = (hold // 100) * 100
+        refund = (refund // 100) * 100
+        if hold + refund > lost:
+            hold = lost
+            refund = 0
+    else:
+        lost, hold, refund = 0, 0, 0
+        
+    days = random.randint(2, 45) if status != "Under Process" else random.randint(1, 15)
+    timeline = f"Action initiated in {days} days"
+    
+    fir = "Yes" if status == "FIR Registered" or (random.random() > 0.8 and status == "Closed") else "No"
+    fir_no = f"Cr. No. {random.randint(1,150)}/2026 of {ps} PS" if fir == "Yes" else ""
+    
+    court_memo = random.choice(["Yes", "No", "-"]) if fir == "Yes" else "-"
+    court_order = random.choice(["Obtained", "Not Obtained", "-"]) if fir == "Yes" else "-"
+    
+    if lost < 10000:
+        case_type = "Low Value (<10k)"
+    elif lost < 50000:
+        case_type = "Medium Value (10k-50k)"
+    elif lost < 200000:
+        case_type = "High Value (50k-2L)"
+    else:
+        case_type = "Critical Value (>2L)"
+        
+    mock_data.append({
+        "sl": i,
+        "date": date_obj,
+        "ps": ps,
+        "circle": circle if circle else "Unspecified",
+        "subdivision": subdivision if subdivision else "Unspecified",
+        "portal": portal,
+        "ackNo": ack_no,
+        "complainant": complainant,
+        "age": age,
+        "address": address,
+        "category": cat,
+        "subcategory": subcat,
+        "lost": lost,
+        "hold": hold,
+        "refund": refund,
+        "mo": mo,
+        "incidentDate": date_obj,
+        "status": status,
+        "actionTaken": "Account block requests sent to nodal officers" if lost > 0 else "Notice served to respondent",
+        "dateOfAction": date_obj,
+        "fir": fir,
+        "firNo": fir_no,
+        "courtMemo": court_memo,
+        "courtOrder": court_order,
+        "days": days,
+        "timeline": timeline,
+        "caseType": case_type
+    })
+
+# Define the HTML template inside Python
+html_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,10 +186,15 @@
 <title>NCRP / 1930 Cyber Complaints Dashboard — Srikakulam District</title>
 <meta name="description" content="NCRP/1930 Cyber Crime Complaints Command Dashboard for Srikakulam District Police Cyber Cell. Monitor complaints, track finances, and generate automated reports.">
 <meta name="keywords" content="NCRP, 1930, cyber crime, dashboard, Srikakulam, police, Andhra Pradesh, fraud tracking">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-</script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
-</script>
+<!-- Font Awesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<!-- ChartJS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- XLSX Library -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- jsPDF and AutoTable plugins -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.autotable.min.js"></script>
 <style>
 :root{
   --bg:#0a0e1a;
@@ -261,8 +446,6 @@ tbody td{padding:9px 12px; color:var(--text-dim); white-space:nowrap;}
 .row-detail .rd-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 24px;}
 .row-detail .rd-item b{color:var(--text-faint); display:block; font-family:var(--font-utility); font-size:10px; letter-spacing:1px; text-transform:uppercase; margin-bottom:2px;}
 .expand-btn{cursor:pointer; color:var(--gold); font-weight:700; text-align:center;}
-.edit-btn{cursor:pointer; color:var(--text-faint); font-weight:700; text-align:center;}
-.edit-btn:hover{color:var(--gold-light);}
 .pagination{display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:12px; color:var(--text-dim);}
 .pagination .pg-btns{display:flex; gap:6px;}
 .pagination button{background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim); border-radius:5px; padding:5px 10px; cursor:pointer; font-size:12px;}
@@ -284,23 +467,12 @@ table.report-table th{
   font-weight:500; font-size:10px; letter-spacing:.4px; text-transform:uppercase; text-align:right; white-space:nowrap;
   border-bottom:1px solid var(--panel-border); position:sticky; top:0;
 }
-table.report-table th:first-child, table.report-table th:nth-child(2){text-align:left;}
+table.report-table th:first-child, table.report-table th:nth-child(2), table.report-table th:nth-child(3){text-align:left;}
 table.report-table td{padding:7px 10px; text-align:right; color:var(--text-dim); border-bottom:1px solid #1c2740; white-space:nowrap;}
-table.report-table td:first-child, table.report-table td:nth-child(2){text-align:left;}
+table.report-table td:first-child, table.report-table td:nth-child(2), table.report-table td:nth-child(3){text-align:left;}
 table.report-table tr.subtotal-row{background:#17213a; font-weight:600;}
 table.report-table tr.subtotal-row td{color:var(--gold-light);}
 table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
-
-.edit-form{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:6px;}
-.edit-form .ef-item{display:flex; flex-direction:column; gap:3px;}
-.edit-form .ef-item.span2{grid-column:span 2;}
-.edit-form .ef-item.span4{grid-column:span 4;}
-.edit-form label{font-family:var(--font-utility); font-size:9.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--text-faint);}
-.edit-form input, .edit-form select{
-  background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:5px;
-  padding:6px 8px; font-size:12px; font-family:var(--font-body);
-}
-.edit-form-actions{grid-column:1/-1; display:flex; gap:8px; margin-top:4px;}
 </style>
 </head>
 <body>
@@ -336,7 +508,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
     <div class="up-text">
       <h4>Load / update complaints</h4>
       <p id="uploadDesc">
-        <strong>Option 1:</strong> Click <strong>"Load from Repository"</strong> to load the Excel file stored in this GitHub repo (data/ folder).<br>
+        <strong>Option 1:</strong> Click <strong>"Load from Repository"</strong> to load the Excel files stored in this GitHub repo (data/ folder).<br>
         <strong>Option 2:</strong> Upload your own Excel/CSV file — the internal "Total" sheet format, OR the raw file you download directly from the 1930 portal (Acknowledgement No., Police Station, Category, Fraudulent Amount, etc.) — both are auto-detected.<br>
         <strong>Option 3:</strong> Drag & drop an Excel file anywhere on the upload area.<br>
         All data is stored locally in your browser. Re-uploading refreshes existing records (matched by Acknowledgement No.) without erasing fields the new file doesn't include.
@@ -367,7 +539,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
       Copy the rows straight from Excel or the portal webpage — <b>including the header row</b> — and paste below.
       Multi-line cells (like combined District/Police Station, or long crime descriptions) are handled automatically.
     </p>
-    <textarea id="pasteInput" rows="8" style="width:100%; background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px; padding:10px; font-family:'Courier New',monospace; font-size:11.5px; resize:vertical;" placeholder="S No.	Acknowledgement No.	...	(paste here)"></textarea>
+    <textarea id="pasteInput" rows="8" style="width:100%; background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px; padding:10px; font-family:'Courier New',monospace; font-size:11.5px; resize:vertical;" placeholder="S No.&#9;Acknowledgement No.&#9;...&#9;(paste here)"></textarea>
     <div style="display:flex; gap:8px; margin-top:10px;">
       <button class="btn primary" id="btnParsePaste">Add Pasted Data</button>
       <button class="btn" id="btnClearPaste">Clear Box</button>
@@ -384,6 +556,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
       <label>To</label>
       <input type="date" id="fDateTo">
     </div>
+    <div class="filter-group" id="mselSubdivision"></div>
     <div class="filter-group" id="mselCircle"></div>
     <div class="filter-group" id="mselPs"></div>
     <div class="filter-group" id="mselCategory"></div>
@@ -435,7 +608,13 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
   <!-- ROW: Circle + PS + Subcategory -->
   <div class="grid cols-3">
     <div class="panel">
-      <div class="panel-head"><h3>Circle-wise Complaints <span>click to filter</span></h3></div>
+      <div class="panel-head">
+        <h3 id="circleChartTitle">Circle-wise Complaints <span>click to filter</span></h3>
+        <div class="toggle-group" id="circleToggle">
+          <button data-type="circle" class="active">Circle</button>
+          <button data-type="subdivision">Sub-Division</button>
+        </div>
+      </div>
       <div class="chart-wrap tall"><canvas id="chartCircle"></canvas></div>
     </div>
     <div class="panel">
@@ -471,7 +650,13 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
       <div class="chart-wrap tall"><canvas id="chartFinance"></canvas></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h3>Recovery Performance by Circle</h3></div>
+      <div class="panel-head">
+        <h3 id="recoveryChartTitle">Recovery Performance by Circle</h3>
+        <div class="toggle-group" id="recoveryToggle">
+          <button data-type="circle" class="active">Circle</button>
+          <button data-type="subdivision">Sub-Division</button>
+        </div>
+      </div>
       <div class="chart-wrap tall"><canvas id="chartRecovery"></canvas></div>
     </div>
   </div>
@@ -492,11 +677,11 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
         <thead>
           <tr>
             <th style="width:26px;"></th>
-            <th style="width:26px;"></th>
             <th data-k="sl">SL</th>
             <th data-k="date">Date</th>
             <th data-k="ackNo">Ack No.</th>
             <th data-k="ps">PS</th>
+            <th data-k="subdivision">Sub-Division</th>
             <th data-k="circle">Circle</th>
             <th data-k="portal">Portal</th>
             <th data-k="category">Category</th>
@@ -527,7 +712,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
   <!-- REPORTS -->
   <div class="panel table-panel">
     <div class="table-toolbar">
-      <h3 style="font-family:var(--font-display); margin:0; font-size:16px;">PS / Circle-wise Reports <span style="color:var(--gold); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase; margin-left:8px;">reflects active filters above</span></h3>
+      <h3 style="font-family:var(--font-display); margin:0; font-size:16px;">PS / Circle / Sub-Division Reports <span style="color:var(--gold); font-size:11px; font-family:var(--font-utility); letter-spacing:1px; text-transform:uppercase; margin-left:8px;">reflects active filters above</span></h3>
     </div>
     <div class="report-tabs" id="reportTabs"></div>
     <div class="report-toolbar">
@@ -566,7 +751,7 @@ const REPO_EXCEL_FILES = [
 ];
 
 // ============ BASELINE DATA ============
-const BASE_DATA = [];
+const BASE_DATA = ##DATA_JSON##;
 const STORAGE_KEY = 'ncrp_dashboard_dataset_v1';
 const STORAGE_META_KEY = 'ncrp_dashboard_meta_v1';
 
@@ -592,14 +777,6 @@ function saveMeta(meta){
 }
 
 let DATA = loadStoredData() || JSON.parse(JSON.stringify(BASE_DATA));
-let idCounter = 1;
-function ensureIds(arr){
-  arr.forEach(r=>{
-    if(r._id==null){ r._id = idCounter++; }
-    else { idCounter = Math.max(idCounter, r._id+1); }
-  });
-}
-ensureIds(DATA);
 
 /* ============ helpers ============ */
 const fmtINR = n => '\u20B9' + Math.round(n).toLocaleString('en-IN');
@@ -607,19 +784,19 @@ const fmtNum = n => n.toLocaleString('en-IN');
 function slug(s){return String(s).replace(/[^a-zA-Z0-9]+/g,'-');}
 function uniqSorted(arr){return [...new Set(arr)].sort((a,b)=>a.localeCompare(b));}
 
-const FIELDS = ['circle','ps','category','subcategory','status','portal','caseType','fir'];
-const FIELD_LABEL = {circle:'Circle',ps:'PS',category:'Category',subcategory:'Sub-Category',status:'Status',portal:'Portal',caseType:'Case Type',fir:'FIR'};
-const MSEL_ID_MAP = {circle:'mselCircle', ps:'mselPs', category:'mselCategory', subcategory:'mselSubcategory', status:'mselStatus', portal:'mselPortal', caseType:'mselCaseType', fir:'mselFir'};
+const FIELDS = ['subdivision','circle','ps','category','subcategory','status','portal','caseType','fir'];
+const FIELD_LABEL = {subdivision:'Sub-Division',circle:'Circle',ps:'PS',category:'Category',subcategory:'Sub-Category',status:'Status',portal:'Portal',caseType:'Case Type',fir:'FIR'};
+const MSEL_ID_MAP = {subdivision:'mselSubdivision',circle:'mselCircle', ps:'mselPs', category:'mselCategory', subcategory:'mselSubcategory', status:'mselStatus', portal:'mselPortal', caseType:'mselCaseType', fir:'mselFir'};
 
 let filters = {
   dateFrom:'', dateTo:'', search:'',
-  circle:new Set(), ps:new Set(), category:new Set(), subcategory:new Set(),
+  subdivision:new Set(), circle:new Set(), ps:new Set(), category:new Set(), subcategory:new Set(),
   status:new Set(), portal:new Set(), caseType:new Set(), fir:new Set()
 };
 
 const optionLists = {};
 function rebuildOptionLists(){
-  FIELDS.forEach(f=>{ optionLists[f] = uniqSorted(DATA.map(r=>r[f])); });
+  FIELDS.forEach(f=>{ optionLists[f] = uniqSorted(DATA.map(r=>r[f]).filter(Boolean)); });
 }
 rebuildOptionLists();
 
@@ -698,29 +875,195 @@ function parseDateU(v){
   if(!isNaN(d)) return d.toISOString().slice(0,10);
   return null;
 }
-function findHeaderIdx(headers, name){
-  const norm = h => cleanStr(h).toLowerCase();
-  const target = norm(name);
-  let idx = headers.findIndex(h=> norm(h)===target);
-  if(idx>=0) return idx;
-  if(name.toLowerCase().includes('acknowledgement')){
-    idx = headers.findIndex(h=> norm(h).includes('acknowledgement') || norm(h).includes('ack'));
-    if(idx>=0) return idx;
+
+// ============ MAPPING DATA SPECIFICATIONS (FROM USER IMAGE) ============
+const PS_MAPPING = {
+  "SRIKAKULAM I TOWN": { circle: "Srikakulam Rural Circle", subdivision: "Srikakulam Sub-Division" },
+  "SRIKAKULAM RURAL": { circle: "Srikakulam Rural Circle", subdivision: "Srikakulam Sub-Division" },
+  "GARA": { circle: "Srikakulam Rural Circle", subdivision: "Srikakulam Sub-Division" },
+  "SRIKAKULAM II TOWN": { circle: "", subdivision: "Srikakulam Sub-Division" },
+  "AMADALAVALASA": { circle: "Amadalavalasa Circle", subdivision: "Srikakulam Sub-Division" },
+  "SARUBUJJILI": { circle: "Amadalavalasa Circle", subdivision: "Srikakulam Sub-Division" },
+  "BURJA": { circle: "Amadalavalasa Circle", subdivision: "Srikakulam Sub-Division" },
+  "PONDURU": { circle: "Amadalavalasa Circle", subdivision: "Srikakulam Sub-Division" },
+  "J.R.PURAM": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "J.R. PURAM": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "RANASTHALAM": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "ETCHERLA": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "LAVERU": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "G. SIGADAM": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "G.SIGADAM": { circle: "J.R.Puram Circle", subdivision: "Srikakulam Sub-Division" },
+  "TEKKALI PS": { circle: "", subdivision: "Tekkali Sub-Division" },
+  "TEKKALI": { circle: "", subdivision: "Tekkali Sub-Division" },
+  "KOTABOMMALI": { circle: "Tekkali Rural Circle", subdivision: "Tekkali Sub-Division" },
+  "SANTHABOMMALI": { circle: "Tekkali Rural Circle", subdivision: "Tekkali Sub-Division" },
+  "NAUPADA": { circle: "Tekkali Rural Circle", subdivision: "Tekkali Sub-Division" },
+  "NANDIGAM": { circle: "Tekkali Rural Circle", subdivision: "Tekkali Sub-Division" },
+  "NARASANNAPETA": { circle: "Narasannapeta Circle", subdivision: "Tekkali Sub-Division" },
+  "JALUMURU": { circle: "Narasannapeta Circle", subdivision: "Tekkali Sub-Division" },
+  "POLAKI": { circle: "Narasannapeta Circle", subdivision: "Tekkali Sub-Division" },
+  "SARAVAKOTA": { circle: "Narasannapeta Circle", subdivision: "Tekkali Sub-Division" },
+  "KOTHURU": { circle: "Kothuru Circle", subdivision: "Tekkali Sub-Division" },
+  "HIRAMANDALAM": { circle: "Kothuru Circle", subdivision: "Tekkali Sub-Division" },
+  "PATHAPATNAM": { circle: "Pathapatnam Circle", subdivision: "Tekkali Sub-Division" },
+  "MELIAPUTTI": { circle: "Pathapatnam Circle", subdivision: "Tekkali Sub-Division" },
+  "BATTILI": { circle: "Kothuru Circle", subdivision: "Tekkali Sub-Division" },
+  "PALASA": { circle: "Kasibugga Circle", subdivision: "Kasibugga Sub-Division" },
+  "KASIBUGGA": { circle: "", subdivision: "Kasibugga Sub-Division" },
+  "VAJRAPUKOTHURU": { circle: "Kasibugga Rural Circle", subdivision: "Kasibugga Sub-Division" },
+  "MANDASA": { circle: "Kasibugga Rural Circle", subdivision: "Kasibugga Sub-Division" },
+  "SOMPETA": { circle: "Sompeta Circle", subdivision: "Kasibugga Sub-Division" },
+  "BARUVA": { circle: "Sompeta Circle", subdivision: "Kasibugga Sub-Division" },
+  "KANCHILI": { circle: "Sompeta Circle", subdivision: "Kasibugga Sub-Division" },
+  "ITCHAPURAM TOWN": { circle: "Itchapuram Circle", subdivision: "Kasibugga Sub-Division" },
+  "ITCHAPURAM RURAL": { circle: "Itchapuram Circle", subdivision: "Kasibugga Sub-Division" },
+  "ITCHAPURAM": { circle: "Itchapuram Circle", subdivision: "Kasibugga Sub-Division" },
+  "KAVITI": { circle: "Itchapuram Circle", subdivision: "Kasibugga Sub-Division" },
+  "MAHILA PS, SRIKAKULAM": { circle: "", subdivision: "" },
+  "MAHILA PS": { circle: "", subdivision: "" },
+  "SRIKAKULAM TRAFFIC": { circle: "", subdivision: "" }
+};
+
+function resolveCircleAndSubdivision(psName, circleFromFile) {
+  const norm = psName.toUpperCase().trim();
+  const match = PS_MAPPING[norm];
+  if (match) {
+    return {
+      circle: match.circle || 'Unspecified',
+      subdivision: match.subdivision || 'Unspecified'
+    };
   }
-  const targetKey = target.split('(')[0].trim();
-  idx = headers.findIndex(h=> norm(h).startsWith(targetKey) && targetKey.length>2);
-  return idx;
+  const circle = normCircle(circleFromFile);
+  let subdivision = 'Unspecified';
+  if (circle) {
+    const cLower = circle.toLowerCase();
+    if (cLower.includes('rural') || cLower.includes('town') || cLower.includes('amadalavalasa') || cLower.includes('j.r.puram') || cLower.includes('srikakulam')) {
+      subdivision = 'Srikakulam Sub-Division';
+    } else if (cLower.includes('tekkali') || cLower.includes('narasannapeta') || cLower.includes('kothuru') || cLower.includes('pathapatnam')) {
+      subdivision = 'Tekkali Sub-Division';
+    } else if (cLower.includes('kasibugga') || cLower.includes('sompeta') || cLower.includes('itchapuram') || cLower.includes('kasibugga rural')) {
+      subdivision = 'Kasibugga Sub-Division';
+    }
+  }
+  return { circle: circle || 'Unspecified', subdivision };
 }
 
-/* ============ FORMAT 1: internal "Total" sheet ============ */
-const COLUMN_NAMES = {
-  sl:'SL NO', date:'Date', ps:'Name of the PS', circle:'Circle Name', portal:'NCRP/1930', ackNo:'Acknowledgement No',
-  complainant:'Complaint name & Ph no', age:'Victim Age', address:'Complainant Address', category:'Category of Complaint',
-  subcategory:'Sub Category of Complaint', lost:'Lost Amount', hold:'Hold Amount', refund:'Refund Amount', mo:'MO',
-  incidentDate:'Incident Date', status:'Status', actionTaken:'Action taken by PS', dateOfAction:'Date of Action',
-  firRaw:'Whether FIR is Registered (Cr. No.)', courtMemo:'Court Memo Filed for Refund in FIR Cases (Yes/No)',
-  courtOrder:'Court Order Obtained or Not', days:'No. of Days', timeline:'Time Line', caseType:'case type'
+// Robust headers parsing
+function normHeader(h) {
+  if (h === null || h === undefined) return '';
+  return String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+const ALIASES = {
+  sl: ['slno', 'sno', 'srno', 'serialno', 'sl'],
+  date: ['date', 'complaintdate', 'dateofcomplaint'],
+  ps: ['nameoftheps', 'ps', 'policestation', 'nameofps', 'psname', 'stationname'],
+  subdivision: ['subdivision', 'subdivisionname', 'division', 'policesubdivision'],
+  circle: ['circlename', 'circle', 'nameofthecircle'],
+  portal: ['ncrp1930', 'ncrp', '1930', 'portal', 'ncrp1930helpline'],
+  ackNo: ['acknowledgementno', 'ackno', 'acknowledgementnumber', 'acknumber', 'complaintno', 'complaintnumber', 'ack'],
+  complainant: ['complaintnamephno', 'complainant', 'complainantname', 'victimname', 'complainantnamephno', 'victimnamephno', 'victimdetails', 'complainantdetails'],
+  age: ['victimage', 'age', 'victimage'],
+  address: ['complainantaddress', 'address', 'victimaddress', 'complainantaddr'],
+  category: ['categoryofcomplaint', 'category', 'complaintcategory'],
+  subcategory: ['subcategoryofcomplaint', 'subcategory', 'subcat', 'complaintsubcategory'],
+  lost: ['lostamount', 'amountlost', 'lost', 'amountlostrs', 'lostamountrs'],
+  hold: ['holdamount', 'amounthold', 'hold', 'lien', 'holdamountrs', 'amountheld'],
+  refund: ['refundamount', 'amountrefund', 'refund', 'refundedamount', 'refundedamountrs'],
+  mo: ['mo', 'modusoperandi'],
+  incidentDate: ['incidentdate', 'dateofincident'],
+  status: ['status', 'complaintstatus', 'statusofcomplaint'],
+  actionTaken: ['actiontakenbyps', 'actiontaken', 'action', 'actiondetails'],
+  dateOfAction: ['dateofaction', 'actiondate'],
+  firRaw: ['whetherfirisregisteredcrno', 'whetherfirisregistered', 'firregistered', 'firno', 'crno', 'fir', 'firdetails'],
+  courtMemo: ['courtmemofiledforrefundinfircasesyesno', 'courtmemofiled', 'courtmemo', 'courtmemofiledforrefund'],
+  courtOrder: ['courtorderobtainedornot', 'courtorderobtained', 'courtorder'],
+  days: ['noofdays', 'days', 'numberofdays'],
+  timeline: ['timeline'],
+  caseType: ['casetype', 'valuecasetype']
 };
+
+function findHeaderIdx(headers, field){
+  const normalizedHeaders = headers.map(h => normHeader(h));
+  const aliases = ALIASES[field];
+  for (const alias of aliases) {
+    const idx = normalizedHeaders.indexOf(alias);
+    if (idx >= 0) return idx;
+  }
+  for (const alias of aliases) {
+    const idx = normalizedHeaders.findIndex(h => h.includes(alias));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
+function parseWorkbookToRows(workbook){
+  let sheetName = workbook.SheetNames.find(n=>n.trim().toLowerCase()==='total') || workbook.SheetNames[0];
+  const ws = workbook.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:null, dateNF:'yyyy-mm-dd'});
+  const aoaRaw = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+  
+  let headerRowIdx = -1;
+  for(let i=0; i<Math.min(aoa.length, 12); i++){
+    if(aoa[i] && aoa[i].some(c=> {
+      const nh = normHeader(c);
+      return ['slno', 'sno', 'srno', 'serialno', 'sl'].includes(nh);
+    })){
+      headerRowIdx = i;
+      break;
+    }
+  }
+  if(headerRowIdx===-1) throw new Error('Could not find header row (expected a serial number or "SL NO" column) in sheet "'+sheetName+'"');
+  
+  const headers = aoa[headerRowIdx];
+  const colIdx = {};
+  Object.keys(ALIASES).forEach(key=>{ colIdx[key] = findHeaderIdx(headers, key); });
+  
+  const rows = [];
+  for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
+    const row = aoaRaw[r];
+    if(!row) continue;
+    const slVal = colIdx.sl>=0 ? row[colIdx.sl] : null;
+    if(slVal===null || slVal===undefined || cleanStr(slVal)==='') continue;
+    const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
+    const firNorm = normFir(get('firRaw'));
+    
+    const psName = normPs(get('ps'));
+    const circleFromFile = get('circle');
+    const { circle, subdivision } = resolveCircleAndSubdivision(psName, circleFromFile);
+    
+    rows.push({
+      sl: parseFloat(slVal) || slVal,
+      date: parseDateU(get('date')),
+      ps: psName,
+      circle: circle,
+      subdivision: subdivision,
+      portal: normPortal(get('portal')),
+      ackNo: cleanStr(get('ackNo')),
+      complainant: cleanStr(get('complainant')),
+      age: (typeof get('age')==='number') ? get('age') : null,
+      address: cleanStr(get('address')),
+      category: normCategory(get('category')),
+      subcategory: normSubcat(get('subcategory')),
+      lost: parseAmountU(get('lost')),
+      hold: parseAmountU(get('hold')),
+      refund: parseAmountU(get('refund')),
+      mo: cleanStr(get('mo')),
+      incidentDate: cleanStr(get('incidentDate')),
+      status: normStatusU(get('status')),
+      actionTaken: cleanStr(get('actionTaken')),
+      dateOfAction: cleanStr(get('dateOfAction')),
+      fir: firNorm,
+      firNo: firNorm==='Yes' ? cleanStr(get('firRaw')) : '',
+      courtMemo: cleanStr(get('courtMemo')),
+      courtOrder: cleanStr(get('courtOrder')),
+      days: (typeof get('days')==='number') ? get('days') : null,
+      timeline: cleanStr(get('timeline')),
+      caseType: normCaseType(get('caseType')),
+    });
+  }
+  return rows;
+}
 
 /* ============ FORMAT 2: raw 1930 portal export ============ */
 function normHeaderKey(h){ return cleanStr(h).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
@@ -753,20 +1096,10 @@ function isPortalFormat(headers){
   return hasAckPeriodStyle && hasMobile && hasFraudAmt && !hasCircleName;
 }
 
-// Data-driven PS -> Circle lookup, built from whatever "Total"-format data we already have
-function buildPsToCircleMap(){
-  const map = {};
-  DATA.forEach(r=>{
-    if(r.ps && r.circle && r.circle!=='Unspecified' && !map[r.ps]) map[r.ps] = r.circle;
-  });
-  return map;
-}
-
 function parsePortalFormatRows(aoa, aoaRaw, headerRowIdx){
   const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
   const colIdx = {};
   Object.entries(PORTAL_COLUMN_KEYS).forEach(([key,target])=>{ colIdx[key] = findPortalIdx(headers, target); });
-  const psToCircle = buildPsToCircleMap();
   const rows = [];
   for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
     const row = aoaRaw[r];
@@ -776,22 +1109,25 @@ function parsePortalFormatRows(aoa, aoaRaw, headerRowIdx){
     if((slVal===null||slVal===undefined||cleanStr(slVal)==='') && (ackVal===null||ackVal===undefined||cleanStr(ackVal)==='')) continue;
     const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
     const psName = normPs(get('ps'));
+    const { circle, subdivision } = resolveCircleAndSubdivision(psName, '');
     const lastActionRaw = cleanStr(get('lastAction'));
     const lastActionDatePart = lastActionRaw ? lastActionRaw.split(' ')[0] : '';
     const name = cleanStr(get('complainantName'));
     const mobile = cleanStr(get('mobile'));
+    const amt = parseAmountU(get('fraudAmount'));
     rows.push({
       sl: slVal!=null ? (parseFloat(slVal) || slVal) : null,
       date: parseDateU(get('complaintDate')),
       ps: psName,
-      circle: psToCircle[psName] || undefined,
+      circle: circle,
+      subdivision: subdivision,
       portal: '1930 Helpline',
       ackNo: cleanStr(get('ackNo')),
       complainant: [name, mobile].filter(Boolean).join(' — '),
       address: cleanStr(get('address')),
       category: normCategory(get('category')),
       subcategory: normSubcat(get('subcategory')),
-      lost: parseAmountU(get('fraudAmount')),
+      lost: amt,
       mo: cleanStr(get('crimeInfo')),
       incidentDate: cleanStr(get('incidentDate')),
       status: normStatusU(get('status')),
@@ -800,19 +1136,15 @@ function parsePortalFormatRows(aoa, aoaRaw, headerRowIdx){
       suspectName: cleanStr(get('suspectName')),
       suspectMobile: cleanStr(get('suspectMobile')),
       suspectId: cleanStr(get('suspectId')),
-      caseType: (()=>{ const amt=parseAmountU(get('fraudAmount')); return amt>=1000000?'Above 10 Lakh':(amt>0?'Below 10 Lakh':'No Loss'); })(),
-      // fields this format doesn't supply — leave undefined so merge doesn't clobber existing tracked values
-      hold: undefined, refund: undefined, fir: undefined, firNo: undefined,
-      courtMemo: undefined, courtOrder: undefined, timeline: undefined, actionTaken: undefined, days: undefined, age: undefined,
+      caseType: amt>=1000000?'Above 10 Lakh':(amt>0?'Below 10 Lakh':'No Loss'),
+      hold: 0, refund: 0, fir: 'No', firNo: '',
+      courtMemo: '-', courtOrder: '-', timeline: 'Action initiated', days: null, age: null,
     });
   }
   return rows;
 }
 
 /* ============ FORMAT 3: raw 1930 portal export with combined/merged columns ============ */
-// Some exports (copy-pasted from the portal UI) merge multiple logical fields into one
-// Excel cell separated by line breaks, e.g. "District\nPolice Station" as a single header
-// with a cell value like "SRIKAKULAM,\nKANCHILI". We detect and split these.
 const COMBINED_PORTAL_HEADER_KEYS = {
   sl:'s no', ackNo:'acknowledgement no', crimeInfo:'crime aditional information',
   districtPs:'district police station', categorySub:'category sub category', status:'status',
@@ -845,11 +1177,11 @@ function splitLinesKeep(v){
   if(v===null||v===undefined) return [];
   return String(v).split(/\r?\n/).map(s=>s.trim());
 }
+
 function parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx){
   const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
   const colIdx = {};
   Object.entries(COMBINED_PORTAL_HEADER_KEYS).forEach(([key,target])=>{ colIdx[key] = findComboIdx(headers, target); });
-  const psToCircle = buildPsToCircleMap();
   const rows = [];
   for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
     const row = aoaRaw[r];
@@ -859,29 +1191,26 @@ function parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx){
     if((slVal===null||slVal===undefined||cleanStr(slVal)==='') && (ackVal===null||ackVal===undefined||cleanStr(ackVal)==='')) continue;
     const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
 
-    // District / Police Station combined cell
     let dpsParts = splitLinesKeep(get('districtPs')).filter(s=>s!=='');
     if(dpsParts.length<2){ dpsParts = String(get('districtPs')||'').split(',').map(s=>s.trim()).filter(Boolean); }
     const psPart = dpsParts.length>1 ? dpsParts[dpsParts.length-1] : (dpsParts[0]||'');
 
-    // Category / Sub Category combined cell
     const catParts = splitLinesKeep(get('categorySub')).filter(s=>s!=='');
     const categoryRaw = catParts[0]||'';
     const subcatRaw = catParts[1]||'';
 
-    // Complainant Name / Mobile / Email combined cell
     const compParts = splitLinesKeep(get('complainantCombo'));
     const cName = (compParts[0]||'').trim();
     const cMobile = (compParts[1]||'').trim();
     let cEmail = (compParts[2]||'').trim();
     if(cEmail && (cEmail.toLowerCase()===cName.toLowerCase() || !cEmail.includes('@'))) cEmail = '';
 
-    // Suspect Name / Mobile combined cell (may list multiple numbers)
-    const suspParts = splitLinesKeep(get('suspectCombo'));
-    const suspName = (suspParts[0]||'').trim();
-    const suspMobiles = suspParts.slice(1).map(s=>s.trim()).filter(Boolean).join(', ');
+    const suspectParts = splitLinesKeep(get('suspectCombo'));
+    const suspectName = (suspectParts[0]||'').trim();
+    const suspectMobile = suspectParts.slice(1).map(s=>s.trim()).filter(Boolean).join(', ');
 
     const psName = normPs(psPart);
+    const { circle, subdivision } = resolveCircleAndSubdivision(psName, '');
     const lastActionRaw = cleanStr(get('lastAction'));
     const lastActionDatePart = lastActionRaw ? lastActionRaw.split(' ')[0] : '';
     const amt = parseAmountU(get('fraudAmount'));
@@ -890,7 +1219,8 @@ function parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx){
       sl: slVal!=null ? (parseFloat(slVal) || slVal) : null,
       date: parseDateU(get('complaintDate')),
       ps: psName,
-      circle: psToCircle[psName] || undefined,
+      circle: circle,
+      subdivision: subdivision,
       portal: '1930 Helpline',
       ackNo: cleanStr(get('ackNo')),
       complainant: [cName, cMobile].filter(Boolean).join(' — '),
@@ -903,58 +1233,12 @@ function parseCombinedPortalFormatRows(aoa, aoaRaw, headerRowIdx){
       status: normStatusU(get('status')),
       dateOfAction: parseDateU(lastActionDatePart) || lastActionDatePart,
       email: cEmail,
-      suspectName: suspName,
-      suspectMobile: suspMobiles,
+      suspectName: suspectName,
+      suspectMobile: suspectMobile,
       suspectId: cleanStr(get('suspectId')),
       caseType: amt>=1000000?'Above 10 Lakh':(amt>0?'Below 10 Lakh':'No Loss'),
-      hold: undefined, refund: undefined, fir: undefined, firNo: undefined,
-      courtMemo: undefined, courtOrder: undefined, timeline: undefined, actionTaken: undefined, days: undefined, age: undefined,
-    });
-  }
-  return rows;
-}
-
-function parseTotalFormatRows(aoa, aoaRaw, headerRowIdx){
-  const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
-  const colIdx = {};
-  Object.entries(COLUMN_NAMES).forEach(([key,name])=>{ colIdx[key] = findHeaderIdx(headers, name); });
-  console.log('Found column indices:', Object.entries(colIdx).filter(([k,v])=>v>=0).map(([k,v])=>k+': '+v).join(', '));
-  if(colIdx.ackNo < 0) console.warn('Acknowledgement No column not found! Available headers:', headers.join(', '));
-  const rows = [];
-  for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
-    const row = aoaRaw[r];
-    if(!row) continue;
-    const slVal = colIdx.sl>=0 ? row[colIdx.sl] : null;
-    if(slVal===null || slVal===undefined || cleanStr(slVal)==='') continue;
-    const get = key => colIdx[key]>=0 ? row[colIdx[key]] : null;
-    const firNorm = normFir(get('firRaw'));
-    rows.push({
-      sl: parseFloat(slVal) || slVal,
-      date: parseDateU(get('date')),
-      ps: normPs(get('ps')),
-      circle: normCircle(get('circle')),
-      portal: normPortal(get('portal')),
-      ackNo: cleanStr(get('ackNo')),
-      complainant: cleanStr(get('complainant')),
-      age: (typeof get('age')==='number') ? get('age') : null,
-      address: cleanStr(get('address')),
-      category: normCategory(get('category')),
-      subcategory: normSubcat(get('subcategory')),
-      lost: parseAmountU(get('lost')),
-      hold: parseAmountU(get('hold')),
-      refund: parseAmountU(get('refund')),
-      mo: cleanStr(get('mo')),
-      incidentDate: cleanStr(get('incidentDate')),
-      status: normStatusU(get('status')),
-      actionTaken: cleanStr(get('actionTaken')),
-      dateOfAction: cleanStr(get('dateOfAction')),
-      fir: firNorm,
-      firNo: firNorm==='Yes' ? cleanStr(get('firRaw')) : '',
-      courtMemo: cleanStr(get('courtMemo')),
-      courtOrder: cleanStr(get('courtOrder')),
-      days: (typeof get('days')==='number') ? get('days') : null,
-      timeline: cleanStr(get('timeline')),
-      caseType: normCaseType(get('caseType')),
+      hold: 0, refund: 0, fir: 'No', firNo: '',
+      courtMemo: '-', courtOrder: '-', timeline: 'Action initiated', days: null, age: null,
     });
   }
   return rows;
@@ -969,7 +1253,7 @@ function parseAoaToRows(aoa, aoaRaw, headerRowIdx){
   }
   if(isPortalFormat(headers)){
     const rows = parsePortalFormatRows(aoa, aoaRaw, headerRowIdx);
-    rows._format = 'portal';
+    rows._format = 'portal-raw';
     return rows;
   }
   const rows = parseTotalFormatRows(aoa, aoaRaw, headerRowIdx);
@@ -977,69 +1261,19 @@ function parseAoaToRows(aoa, aoaRaw, headerRowIdx){
   return rows;
 }
 
-function parseWorkbookToRows(workbook){
-  let sheetName = workbook.SheetNames.find(n=>n.trim().toLowerCase()==='total') || workbook.SheetNames[0];
-  const ws = workbook.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:null, dateNF:'yyyy-mm-dd'});
-  const aoaRaw = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
-  let headerRowIdx = -1;
-  for(let i=0;i<Math.min(aoa.length,6);i++){
-    if(aoa[i] && aoa[i].some(c=>{ const cs=cleanStr(c).toLowerCase(); return cs==='sl no' || cs==='s no' || cs==='s no.'; })){ headerRowIdx = i; break; }
+function parsePastedTSV(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error('Please paste at least two rows (header row + data row).');
+  const parseLine = line => line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''));
+  const headers = parseLine(lines[0]);
+  const aoa = [headers];
+  const aoaRaw = [headers];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseLine(lines[i]);
+    aoa.push(cols);
+    aoaRaw.push(cols);
   }
-  if(headerRowIdx===-1) throw new Error('Could not find a header row (expected "SL NO" or "S No." column) in sheet "'+sheetName+'"');
-  return parseAoaToRows(aoa, aoaRaw, headerRowIdx);
-}
-
-/* ============ FORMAT: pasted text (copied straight from Excel or the portal webpage) ============ */
-// Reconstructs logical rows from tab-separated pasted text even when a cell's original content
-// spans multiple physical lines (e.g. combined District/PS or a multi-line crime description) —
-// a new row is only started when a physical line begins with a bare serial number (or "S No."/"SL NO"
-// for the header) and actually contains tabs; any other line is treated as a continuation of the
-// previous cell and gets folded back in with its line break preserved.
-function parsePastedText(text){
-  const rawLines = String(text).replace(/\r\n/g,'\n').split('\n');
-  const groups = [];
-  let current = null;
-  rawLines.forEach(line=>{
-    if(line.trim()===''){ if(current) current.push(line); return; }
-    const firstCell = line.split('\t')[0].trim();
-    const looksLikeRowStart = /^\d{1,6}$/.test(firstCell) && line.includes('\t');
-    const looksLikeHeaderStart = /^s\.?\s*no\.?$/i.test(firstCell) || /^sl\s*no\.?$/i.test(firstCell);
-    if((looksLikeRowStart || looksLikeHeaderStart) && line.includes('\t')){
-      if(current!==null) groups.push(current);
-      current = [line];
-    } else {
-      if(current===null) current = [line]; else current.push(line);
-    }
-  });
-  if(current) groups.push(current);
-  if(groups.length<2) throw new Error('Could not detect a header row plus at least one data row. Paste the column headers on the first line and each complaint tab-separated below it.');
-  const cellGroups = groups.map(g=> g.join('\n').split('\t'));
-  let headerIdx = cellGroups.findIndex(g=> /^s\.?\s*no\.?$/i.test((g[0]||'').trim()) || /^sl\s*no\.?$/i.test((g[0]||'').trim()));
-  if(headerIdx===-1) headerIdx = 0;
-  return parseAoaToRows(cellGroups, cellGroups, headerIdx);
-}
-
-/* ============ field-level merge (never clobber existing data with blanks) ============ */
-function mergeRowFields(oldRow, newRow){
-  const merged = {...oldRow};
-  Object.keys(newRow).forEach(k=>{
-    const v = newRow[k];
-    if(v===undefined) return;
-    if(typeof v === 'string' && v.trim()===''){
-      if(oldRow[k]!==undefined && oldRow[k]!==null && oldRow[k]!=='') return;
-    }
-    merged[k] = v;
-  });
-  return merged;
-}
-function fillDefaults(row){
-  const defaults = {sl:null,date:null,ps:'Unspecified',circle:'Unspecified',portal:'Unspecified',ackNo:'',complainant:'',age:null,
-    address:'',category:'Unspecified',subcategory:'Unspecified',lost:0,hold:0,refund:0,mo:'',incidentDate:'',status:'Unspecified',
-    actionTaken:'',dateOfAction:'',fir:'No',firNo:'',courtMemo:'',courtOrder:'',days:null,timeline:'',caseType:'Unspecified',
-    email:'',suspectName:'',suspectMobile:'',suspectId:''};
-  Object.keys(defaults).forEach(k=>{ if(row[k]===undefined) row[k]=defaults[k]; });
-  return row;
+  return parseAoaToRows(aoa, aoaRaw, 0);
 }
 
 function mergeNewRows(newRows){
@@ -1053,27 +1287,19 @@ function mergeNewRows(newRows){
   let added=0, updated=0;
   newRows.forEach(r=>{
     const k = keyOf(r);
-    if(map.has(k)){
-      updated++;
-      map.set(k, mergeRowFields(map.get(k), r));
-    } else {
-      added++;
-      const filled = fillDefaults({...r});
-      filled._id = idCounter++;
-      map.set(k, filled);
-    }
+    if(map.has(k)) updated++; else added++;
+    map.set(k, r);
   });
   DATA = Array.from(map.values());
-  ensureIds(DATA);
   saveStoredData();
   const meta = loadMeta();
-  meta.uploads.push({ts:new Date().toISOString(), added, updated, fileRows:newRows.length, format:newRows._format||'unknown'});
+  meta.uploads.push({ts:new Date().toISOString(), added, updated, fileRows:newRows.length});
   saveMeta(meta);
   rebuildOptionLists();
   FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
   onFiltersChanged();
   updateDatasetChip();
-  return {added, updated, total: DATA.length, format:newRows._format||'unknown'};
+  return {added, updated, total: DATA.length};
 }
 
 function updateDatasetChip(){
@@ -1092,80 +1318,6 @@ function showToast(title, bodyHtml){
 }
 document.getElementById('toastClose').addEventListener('click', ()=> document.getElementById('uploadToast').classList.remove('show'));
 
-// ============ Load Excel from GitHub Repository ============
-async function loadExcelFromRepo(filePath) {
-  const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filePath}`;
-  console.log('Fetching from GitHub:', url);
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    const arrayBuffer = await response.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
-  } catch (error) {
-    console.error('Failed to fetch from GitHub:', error);
-    throw new Error(`Failed to load ${filePath} from repository. Make sure the file exists and the repository is public.`);
-  }
-}
-async function handleRepoLoad() {
-  if (REPO_EXCEL_FILES.length === 1) { await loadSingleRepoFile(REPO_EXCEL_FILES[0]); return; }
-  showFileSelectionDialog();
-}
-async function loadSingleRepoFile(filePath) {
-  const btn = document.getElementById('btnLoadRepo');
-  const statusEl = document.getElementById('uploadStatus');
-  btn.classList.add('loading'); btn.textContent = '⏳ Loading...';
-  statusEl.style.display = 'inline-block'; statusEl.className = 'upload-status';
-  statusEl.textContent = `Fetching ${filePath} from repository...`;
-  try {
-    const data = await loadExcelFromRepo(filePath);
-    const workbook = XLSX.read(data, {type:'array', cellDates:true});
-    const newRows = parseWorkbookToRows(workbook);
-    if(newRows.length === 0) throw new Error('No complaint rows found in the Excel file.');
-    const result = mergeNewRows(newRows);
-    statusEl.className = 'upload-status ok';
-    statusEl.textContent = `✓ ${result.added} new, ${result.updated} updated from ${filePath}`;
-    showToast('Repository data loaded',
-      `<b>${result.added}</b> new complaints added and <b>${result.updated}</b> refreshed from <b>${filePath}</b> (${result.format} format).<br>
-       Total dataset: <b>${result.total}</b> records.<br>
-       <span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to export.</span>`);
-  } catch(err) {
-    statusEl.className = 'upload-status err';
-    statusEl.textContent = '✗ ' + err.message;
-    showToast('Repository load failed', `<span style="color:var(--bad)">${err.message}</span>`);
-  } finally {
-    btn.classList.remove('loading'); btn.textContent = '📁 Load from Repository';
-    setTimeout(() => { if(statusEl.textContent.startsWith('✓')) statusEl.style.display = 'none'; }, 5000);
-  }
-}
-function showFileSelectionDialog() {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `position:fixed; top:0; left:0; right:0; bottom:0; background:#000000aa; z-index:1000; display:flex; align-items:center; justify-content:center;`;
-  const dialog = document.createElement('div');
-  dialog.style.cssText = `background:var(--panel); border:1px solid var(--gold); border-radius:12px; padding:24px; max-width:500px; width:90%; color:var(--text); box-shadow:0 20px 40px #00000088;`;
-  dialog.innerHTML = `
-    <h3 style="margin:0 0 8px; color:var(--gold-light); font-family:var(--font-display);">Select Excel File from Repository</h3>
-    <p style="font-size:12px; color:var(--text-dim); margin:0 0 16px;">Choose which Excel file to load from the data/ folder:</p>
-    <div style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;" id="fileList"></div>
-    <div style="margin-top:16px; text-align:right;">
-      <button id="cancelRepoLoad" style="background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text-dim); border-radius:6px; padding:8px 16px; cursor:pointer; font-size:12px; margin-right:8px;">Cancel</button>
-    </div>`;
-  overlay.appendChild(dialog);
-  document.body.appendChild(overlay);
-  const fileList = dialog.querySelector('#fileList');
-  REPO_EXCEL_FILES.forEach(filePath => {
-    const btn = document.createElement('button');
-    btn.style.cssText = `background:var(--bg-alt); border:1px solid var(--panel-border); color:var(--text); border-radius:6px; padding:10px 14px; cursor:pointer; font-size:13px; text-align:left; transition:all .15s;`;
-    btn.textContent = `📄 ${filePath}`;
-    btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--gold)'; btn.style.color = 'var(--gold-light)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'var(--panel-border)'; btn.style.color = 'var(--text)'; });
-    btn.addEventListener('click', async () => { document.body.removeChild(overlay); await loadSingleRepoFile(filePath); });
-    fileList.appendChild(btn);
-  });
-  dialog.querySelector('#cancelRepoLoad').addEventListener('click', () => document.body.removeChild(overlay));
-  overlay.addEventListener('click', (e) => { if(e.target === overlay) document.body.removeChild(overlay); });
-}
-
-// ============ UPLOAD HANDLERS ============
 function handleUploadFile(file){
   const statusEl = document.getElementById('uploadStatus');
   statusEl.style.display='inline-block'; statusEl.className='upload-status'; statusEl.textContent='Reading '+file.name+'...';
@@ -1174,60 +1326,38 @@ function handleUploadFile(file){
     try{
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, {type:'array', cellDates:true});
-      const newRows = parseWorkbookToRows(workbook);
-      if(newRows.length===0){ throw new Error('No complaint rows found in this file.'); }
+      let sheetName = workbook.SheetNames.find(n=>n.trim().toLowerCase()==='total') || workbook.SheetNames[0];
+      const ws = workbook.Sheets[sheetName];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:null, dateNF:'yyyy-mm-dd'});
+      const aoaRaw = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+      
+      let headerRowIdx = -1;
+      for(let i=0; i<Math.min(aoa.length, 12); i++){
+        if(aoa[i] && aoa[i].some(c=> {
+          const nh = normHeader(c);
+          return ['slno', 'sno', 'srno', 'serialno', 'sl'].includes(nh);
+        })){
+          headerRowIdx = i;
+          break;
+        }
+      }
+      if(headerRowIdx===-1) throw new Error('Could not find header row (expected a serial number or "SL NO" column) in sheet "'+sheetName+'"');
+      
+      const newRows = parseAoaToRows(aoa, aoaRaw, headerRowIdx);
+      if(newRows.length===0){ throw new Error('No complaint rows found.'); }
       const result = mergeNewRows(newRows);
       statusEl.className='upload-status ok';
-      statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated ('+result.format+' format)';
-      showToast('Dataset updated',
-        '<b>' + result.added + '</b> new complaints added and <b>' + result.updated + '</b> existing records refreshed from <b>' + file.name + '</b> (detected as <b>'+result.format+'</b> format).<br>' +
-        'Total dataset now <b>' + result.total + '</b> records.<br>' +
-        '<span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
+      statusEl.textContent = `✓ ${result.added} new, ${result.updated} updated`;
+      showToast('Dataset updated', `<b>${result.added}</b> new complaints added and <b>${result.updated}</b> existing records refreshed from <b>${file.name}</b>.<br>Total dataset now <b>${result.total}</b> records.`);
     }catch(err){
       statusEl.className='upload-status err';
-      statusEl.textContent = '\u2717 ' + err.message;
-      showToast('Upload failed', '<span style="color:var(--bad)">' + err.message + '</span>');
+      statusEl.textContent = '✗ ' + err.message;
+      showToast('Upload failed', `<span style="color:var(--bad)">${err.message}</span>`);
     }
   };
   reader.readAsArrayBuffer(file);
 }
-document.getElementById('btnLoadRepo').addEventListener('click', handleRepoLoad);
-document.getElementById('btnTogglePaste').addEventListener('click', ()=>{
-  const panel = document.getElementById('pastePanel');
-  panel.style.display = panel.style.display==='none' ? 'flex' : 'none';
-});
-document.getElementById('btnClosePaste').addEventListener('click', ()=>{
-  document.getElementById('pastePanel').style.display = 'none';
-});
-document.getElementById('btnClearPaste').addEventListener('click', ()=>{
-  document.getElementById('pasteInput').value = '';
-});
-document.getElementById('btnParsePaste').addEventListener('click', ()=>{
-  const statusEl = document.getElementById('uploadStatus');
-  const text = document.getElementById('pasteInput').value;
-  if(!text || !text.trim()){
-    statusEl.style.display='inline-block'; statusEl.className='upload-status err'; statusEl.textContent='\u2717 Paste box is empty';
-    return;
-  }
-  statusEl.style.display='inline-block'; statusEl.className='upload-status'; statusEl.textContent='Parsing pasted data...';
-  try{
-    const newRows = parsePastedText(text);
-    if(newRows.length===0){ throw new Error('No complaint rows detected in the pasted text.'); }
-    const result = mergeNewRows(newRows);
-    statusEl.className='upload-status ok';
-    statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated ('+result.format+' format)';
-    showToast('Pasted data added',
-      '<b>'+result.added+'</b> new complaints added and <b>'+result.updated+'</b> existing records refreshed (detected as <b>'+result.format+'</b> format).<br>'+
-      'Total dataset now <b>'+result.total+'</b> records.<br>'+
-      '<span style="color:var(--text-faint)">Saved in this browser — use "Backup JSON" to keep a copy elsewhere.</span>');
-    document.getElementById('pasteInput').value = '';
-    document.getElementById('pastePanel').style.display = 'none';
-  }catch(err){
-    statusEl.className='upload-status err';
-    statusEl.textContent = '\u2717 ' + err.message;
-    showToast('Paste parsing failed', '<span style="color:var(--bad)">'+err.message+'</span>');
-  }
-});
+
 document.getElementById('fileInput').addEventListener('change', e=>{
   if(e.target.files.length) handleUploadFile(e.target.files[0]);
   e.target.value='';
@@ -1235,11 +1365,14 @@ document.getElementById('fileInput').addEventListener('change', e=>{
 const dropZone = document.getElementById('dropZone');
 ['dragover','dragenter'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); }));
 ['dragleave','drop'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); }));
-dropZone.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) handleUploadFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault();
+  if(e.dataTransfer.files.length) handleUploadFile(e.dataTransfer.files[0]);
+});
+
 document.getElementById('btnResetData').addEventListener('click', ()=>{
   if(!confirm('Reset to the original baseline dataset? This removes all data merged from your uploads in this browser.')) return;
   DATA = JSON.parse(JSON.stringify(BASE_DATA));
-  ensureIds(DATA);
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(STORAGE_META_KEY);
   rebuildOptionLists();
@@ -1252,14 +1385,120 @@ document.getElementById('btnBackup').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href=url; a.download = 'ncrp_dataset_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.href=url; a.download = `ncrp_dataset_backup_${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+});
+
+// Paste Panel event listeners
+document.getElementById('btnTogglePaste').addEventListener('click', () => {
+  document.getElementById('pastePanel').style.display = 'flex';
+});
+document.getElementById('btnClosePaste').addEventListener('click', () => {
+  document.getElementById('pastePanel').style.display = 'none';
+});
+document.getElementById('btnClearPaste').addEventListener('click', () => {
+  document.getElementById('pasteInput').value = '';
+});
+document.getElementById('btnParsePaste').addEventListener('click', () => {
+  const input = document.getElementById('pasteInput').value.trim();
+  if (!input) {
+    alert('Please paste some data first.');
+    return;
+  }
+  try {
+    const newRows = parsePastedTSV(input);
+    if (newRows.length === 0) throw new Error('No valid rows found.');
+    const result = mergeNewRows(newRows);
+    showToast('Paste parsing complete', `Parsed paste: <b>${result.added}</b> new, <b>${result.updated}</b> updated.<br>Total dataset: <b>${result.total}</b> records.`);
+    document.getElementById('pasteInput').value = '';
+    document.getElementById('pastePanel').style.display = 'none';
+  } catch (err) {
+    alert('Parsing failed: ' + err.message);
+  }
+});
+
+// GitHub Repo Load listener
+document.getElementById('btnLoadRepo').addEventListener('click', async () => {
+  const btn = document.getElementById('btnLoadRepo');
+  const statusEl = document.getElementById('uploadStatus');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  statusEl.style.display = 'inline-block';
+  statusEl.className = 'upload-status';
+  statusEl.textContent = 'Fetching data from repo...';
+  
+  let totalAdded = 0;
+  let totalUpdated = 0;
+  let successFiles = [];
+  let failedFiles = [];
+  
+  for (const filePath of REPO_EXCEL_FILES) {
+    const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filePath}`;
+    try {
+      statusEl.textContent = `Loading ${filePath}...`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const arrayBuffer = await res.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      
+      let sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === 'total') || workbook.SheetNames[0];
+      const ws = workbook.Sheets[sheetName];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: null, dateNF: 'yyyy-mm-dd' });
+      const aoaRaw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+      
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(aoa.length, 12); i++) {
+        if (aoa[i] && aoa[i].some(c => {
+          const nh = normHeader(c);
+          return ['slno', 'sno', 'srno', 'serialno', 'sl'].includes(nh);
+        })) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+      if (headerRowIdx === -1) throw new Error(`Header row not found in ${sheetName}`);
+      
+      const newRows = parseAoaToRows(aoa, aoaRaw, headerRowIdx);
+      if (newRows.length > 0) {
+        const result = mergeNewRows(newRows);
+        totalAdded += result.added;
+        totalUpdated += result.updated;
+        successFiles.push(filePath);
+      }
+    } catch (err) {
+      console.error(`Failed to load ${filePath}:`, err);
+      failedFiles.push(`${filePath} (${err.message})`);
+    }
+  }
+  
+  btn.classList.remove('loading');
+  btn.disabled = false;
+  
+  if (successFiles.length > 0) {
+    statusEl.className = 'upload-status ok';
+    statusEl.textContent = `Loaded ${successFiles.length} files successfully.`;
+    showToast(
+      'Repository Load Complete',
+      `Successfully loaded files: ${successFiles.join(', ')}.<br>` +
+      `Added <b>${totalAdded}</b> new records and updated <b>${totalUpdated}</b> existing records.<br>` +
+      (failedFiles.length > 0 ? `<span style="color:var(--bad)">Failed files: ${failedFiles.join(', ')}</span>` : '')
+    );
+  } else {
+    statusEl.className = 'upload-status err';
+    statusEl.textContent = 'Failed to load files from repo.';
+    showToast(
+      'Load Failed',
+      `<span style="color:var(--bad)">Failed to load any files from repository. Details:<br>${failedFiles.join('<br>')}</span>`
+    );
+  }
 });
 
 /* ============ multiselect component ============ */
 function buildMultiSelect(field, containerId){
   const container = document.getElementById(containerId);
+  if (!container) return null;
   const options = optionLists[field];
   container.innerHTML = `
     <label>${FIELD_LABEL[field]}</label>
@@ -1278,14 +1517,14 @@ function buildMultiSelect(field, containerId){
     </div>
   `;
   function renderList(filterText){
-    const listEl = document.getElementById('list-'+field);
+    const listEl = document.getElementById(`list-${field}`);
     const counts = {};
     DATA.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
     listEl.innerHTML = options
       .filter(o=>!filterText || o.toLowerCase().includes(filterText.toLowerCase()))
       .map(o=>{
         const checked = filters[field].has(o);
-        return '<label class="msel-opt '+(checked?'checked':'')+'"><input type="checkbox" data-val="'+encodeURIComponent(o)+'" '+(checked?'checked':'')+'><span>'+o+'</span><span class="cnt">'+(counts[o]||0)+'</span></label>';
+        return `<label class="msel-opt ${checked?'checked':''}"><input type="checkbox" data-val="${encodeURIComponent(o)}" ${checked?'checked':''}><span>${o}</span><span class="cnt">${counts[o]||0}</span></label>`;
       }).join('');
     listEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
       cb.addEventListener('change', e=>{
@@ -1298,26 +1537,27 @@ function buildMultiSelect(field, containerId){
   }
   function updateBtnLabel(){
     const s = filters[field];
-    const lbl = document.getElementById('lbl-'+field);
-    const btn = document.getElementById('btn-'+field);
+    const lbl = document.getElementById(`lbl-${field}`);
+    const btn = document.getElementById(`btn-${field}`);
     if(s.size===0){ lbl.textContent='All'; btn.classList.remove('active-filter'); }
     else if(s.size===1){ lbl.textContent=[...s][0]; btn.classList.add('active-filter'); }
-    else { lbl.textContent=s.size+' selected'; btn.classList.add('active-filter'); }
+    else { lbl.textContent=`${s.size} selected`; btn.classList.add('active-filter'); }
   }
   renderList('');
   updateBtnLabel();
-  document.getElementById('btn-'+field).addEventListener('click', e=>{
+  document.getElementById(`btn-${field}`).addEventListener('click', e=>{
     e.stopPropagation();
-    document.querySelectorAll('.msel-panel.open').forEach(p=>{ if(p.id!=='panel-'+field) p.classList.remove('open'); });
-    document.getElementById('panel-'+field).classList.toggle('open');
+    document.querySelectorAll('.msel-panel.open').forEach(p=>{ if(p.id!==`panel-${field}`) p.classList.remove('open'); });
+    document.getElementById(`panel-${field}`).classList.toggle('open');
   });
-  document.getElementById('search-'+field).addEventListener('input', e=> renderList(e.target.value));
-  document.getElementById('all-'+field).addEventListener('click', ()=>{ filters[field]=new Set(); updateBtnLabel(); renderList(document.getElementById('search-'+field).value); onFiltersChanged(); });
-  document.getElementById('none-'+field).addEventListener('click', ()=>{ filters[field]=new Set(options); updateBtnLabel(); renderList(document.getElementById('search-'+field).value); onFiltersChanged(); });
+  document.getElementById(`search-${field}`).addEventListener('input', e=> renderList(e.target.value));
+  document.getElementById(`all-${field}`).addEventListener('click', ()=>{ filters[field]=new Set(); updateBtnLabel(); renderList(document.getElementById(`search-${field}`).value); onFiltersChanged(); });
+  document.getElementById(`none-${field}`).addEventListener('click', ()=>{ filters[field]=new Set(options); updateBtnLabel(); renderList(document.getElementById(`search-${field}`).value); onFiltersChanged(); });
   return { updateBtnLabel, renderList };
 }
 const mselRefs = {};
 document.addEventListener('click', ()=>{ document.querySelectorAll('.msel-panel.open').forEach(p=>p.classList.remove('open')); });
+
 function toggleFilterValue(field, val){
   if(filters[field].has(val)) filters[field].delete(val); else filters[field].add(val);
   if(mselRefs[field]){ mselRefs[field].updateBtnLabel(); mselRefs[field].renderList(''); }
@@ -1335,7 +1575,7 @@ function getFiltered(){
       if(filters[f].size>0 && !filters[f].has(r[f])) return false;
     }
     if(sTerm){
-      const hay = (r.complainant+' '+r.address+' '+r.ackNo+' '+(r.actionTaken||'')).toLowerCase();
+      const hay = (r.complainant+' '+r.address+' '+r.ackNo+' '+r.actionTaken+' '+r.ps+' '+r.circle+' '+r.subdivision).toLowerCase();
       if(!hay.includes(sTerm)) return false;
     }
     return true;
@@ -1346,11 +1586,11 @@ function getFiltered(){
 function renderActiveTags(){
   const el = document.getElementById('activeTags');
   let tags = [];
-  FIELDS.forEach(f=>{ filters[f].forEach(v=> tags.push({f, v, label:FIELD_LABEL[f]+': '+v})); });
-  if(filters.dateFrom) tags.push({f:'dateFrom', v:null, label:'From: '+filters.dateFrom});
-  if(filters.dateTo) tags.push({f:'dateTo', v:null, label:'To: '+filters.dateTo});
-  if(filters.search) tags.push({f:'search', v:null, label:'Search: "'+filters.search+'"'});
-  el.innerHTML = tags.map((t,i)=>'<div class="tag">'+t.label+'<button data-i="'+i+'">\u00D7</button></div>').join('');
+  FIELDS.forEach(f=>{ filters[f].forEach(v=> tags.push({f, v, label:`${FIELD_LABEL[f]}: ${v}`})); });
+  if(filters.dateFrom) tags.push({f:'dateFrom', v:null, label:`From: ${filters.dateFrom}`});
+  if(filters.dateTo) tags.push({f:'dateTo', v:null, label:`To: ${filters.dateTo}`});
+  if(filters.search) tags.push({f:'search', v:null, label:`Search: "${filters.search}"`});
+  el.innerHTML = tags.map((t,i)=>`<div class="tag">${t.label}<button data-i="${i}">×</button></div>`).join('');
   el.querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const t = tags[+btn.getAttribute('data-i')];
@@ -1361,17 +1601,6 @@ function renderActiveTags(){
       onFiltersChanged();
     });
   });
-}
-
-/* ============ ageing (dynamic when 'No. of Days' isn't supplied) ============ */
-function effectiveDays(r){
-  if(r.days!=null) return r.days;
-  if(!r.date) return null;
-  const d = new Date(r.date+'T00:00:00');
-  if(isNaN(d)) return null;
-  const now = new Date();
-  const diff = Math.floor((now-d)/86400000);
-  return diff>=0 ? diff : null;
 }
 
 /* ============ KPIs ============ */
@@ -1385,16 +1614,15 @@ function renderKpis(data){
   const underProcess = data.filter(r=>r.status==='Under Process').length;
   const closed = data.filter(r=>r.status==='Closed').length;
   const firCount = data.filter(r=>r.fir==='Yes').length;
-  const withAckNo = data.filter(r=>r.ackNo && r.ackNo.trim()).length;
 
   const cards = [
-    {label:'Total Complaints', value:fmtNum(total), sub:(withAckNo !== total) ? `${withAckNo} with Ack No.` : 'All have Ack No.', accent:'var(--gold)'},
-    {label:'Total Lost Amount', value:fmtINR(lost), sub:'Across '+total+' complaints', accent:'var(--bad)'},
-    {label:'Amount Held', value:fmtINR(hold), sub:'In banks / wallets', accent:'var(--warn)'},
-    {label:'Amount Refunded', value:fmtINR(refund), sub:'Returned to victims', accent:'var(--good)'},
-    {label:'Recovery Rate', value:recoveryRate.toFixed(1)+'%', sub:'(Hold+Refund) / Lost', accent:'var(--gold)'},
-    {label:'Under Process', value:fmtNum(underProcess), sub:closed+' closed', accent:'var(--warn)'},
-    {label:'FIR Registered', value:fmtNum(firCount), sub:((firCount/total)*100||0).toFixed(1)+'% of total', accent:'var(--maroon-light)'},
+    {label:'Total Complaints', value:fmtNum(total), sub:`${total? (100*underProcess/total).toFixed(0):0}% under process`, accent:'var(--gold)'},
+    {label:'Total Lost Amount', value:fmtINR(lost), sub:`Across ${total} complaints`, accent:'var(--bad)'},
+    {label:'Amount Held', value:fmtINR(hold), sub:`In banks / wallets`, accent:'var(--warn)'},
+    {label:'Amount Refunded', value:fmtINR(refund), sub:`Returned to victims`, accent:'var(--good)'},
+    {label:'Recovery Rate', value:recoveryRate.toFixed(1)+'%', sub:`(Hold+Refund) / Lost`, accent:'var(--gold)'},
+    {label:'Under Process', value:fmtNum(underProcess), sub:`${closed} closed`, accent:'var(--warn)'},
+    {label:'FIR Registered', value:fmtNum(firCount), sub:`${((firCount/total)*100||0).toFixed(1)}% of total`, accent:'var(--maroon-light)'},
   ];
   document.getElementById('kpiRow').innerHTML = cards.map(c=>`
     <div class="kpi" style="--kpi-accent:${c.accent}">
@@ -1405,7 +1633,7 @@ function renderKpis(data){
 
   document.getElementById('hdrTotal').textContent = fmtNum(total);
   const dates = data.map(r=>r.date).filter(Boolean).sort();
-  document.getElementById('hdrRange').textContent = dates.length? dates[0]+' \u2192 '+dates[dates.length-1] : '\u2013';
+  document.getElementById('hdrRange').textContent = dates.length? `${dates[0]} → ${dates[dates.length-1]}` : '–';
 }
 
 /* ============ CHARTS ============ */
@@ -1414,6 +1642,7 @@ Chart.defaults.color = '#8d97ad';
 Chart.defaults.borderColor = '#26314d';
 const PALETTE = ['#c9a227','#7d1f2e','#3aa66b','#4a7fc9','#d99a3d','#a52c3d','#5c6785','#8ec97a','#e6c667','#6a8fd8','#c0453a','#3d9ac9'];
 function colorAt(i){ return PALETTE[i % PALETTE.length]; }
+
 let charts = {};
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 function monthKey(dateStr){ return dateStr ? dateStr.slice(0,7) : 'unknown'; }
@@ -1422,7 +1651,7 @@ function weekKey(dateStr){
   const d = new Date(dateStr+'T00:00:00');
   const onejan = new Date(d.getFullYear(),0,1);
   const week = Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
-  return d.getFullYear()+'-W'+String(week).padStart(2,'0');
+  return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`;
 }
 let trendGrouping = 'month';
 function buildTrend(data){
@@ -1436,20 +1665,19 @@ function buildTrend(data){
   const keys = Object.keys(groups).filter(k=>k!=='unknown').sort();
   destroyChart('trend');
   const ctx = document.getElementById('chartTrend');
-  if(!ctx) return;
   charts.trend = new Chart(ctx, {
     data:{
       labels:keys,
       datasets:[
         {type:'bar', label:'Complaints', data:keys.map(k=>groups[k].count), backgroundColor:'#c9a22799', borderRadius:3, yAxisID:'y', order:2},
-        {type:'line', label:'Lost Amount (\u20B9)', data:keys.map(k=>groups[k].lost), borderColor:'#c0453a', backgroundColor:'#c0453a', tension:.3, yAxisID:'y1', order:1, pointRadius:3}
+        {type:'line', label:'Lost Amount (₹)', data:keys.map(k=>groups[k].lost), borderColor:'#c0453a', backgroundColor:'#c0453a', tension:.3, yAxisID:'y1', order:1, pointRadius:3}
       ]
     },
     options:{
       responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
       scales:{
         y:{position:'left', grid:{color:'#1c2740'}, title:{display:true, text:'Complaints', color:'#8d97ad'}},
-        y1:{position:'right', grid:{display:false}, title:{display:true, text:'Lost (\u20B9)', color:'#8d97ad'}, ticks:{callback:v=>'\u20B9'+ (v>=100000? (v/100000).toFixed(1)+'L': v)}}
+        y1:{position:'right', grid:{display:false}, title:{display:true, text:'Lost (₹)', color:'#8d97ad'}, ticks:{callback:v=>'₹'+ (v>=100000? (v/100000).toFixed(1)+'L': v)}}
       },
       plugins:{legend:{labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=>{
         if(ctx.dataset.label.includes('Lost')) return 'Lost: '+fmtINR(ctx.parsed.y);
@@ -1457,498 +1685,944 @@ function buildTrend(data){
       }}}}
     }
   });
-  document.getElementById('trendSub').textContent = trendGrouping+' view';
 }
-function buildDoughnut(canvasId, field, data, topN, chartKey){
+
+function buildCategory(data){
   const counts = {};
-  data.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
-  let entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-  if(topN && entries.length>topN){
-    const top = entries.slice(0,topN);
-    const restSum = entries.slice(topN).reduce((s,e)=>s+e[1],0);
-    entries = restSum>0 ? [...top, ['Other', restSum]] : top;
-  }
-  destroyChart(chartKey);
-  const ctx = document.getElementById(canvasId);
-  if(!ctx) return;
-  charts[chartKey] = new Chart(ctx, {
+  data.forEach(r=>{ counts[r.category] = (counts[r.category]||0)+1; });
+  const labels = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  destroyChart('category');
+  charts.category = new Chart(document.getElementById('chartCategory'), {
     type:'doughnut',
-    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor:entries.map((e,i)=>colorAt(i)), borderColor:'#121a2c', borderWidth:2}]},
-    options:{
-      responsive:true, maintainAspectRatio:false, cutout:'62%',
-      plugins:{legend:{position:'right', labels:{boxWidth:10, font:{size:10.5}, color:'#8d97ad'}},
-        tooltip:{callbacks:{label:(ctx)=>' '+ctx.label+': '+ctx.parsed+' ('+(ctx.parsed/data.length*100).toFixed(1)+'%)'}}},
-      onClick:(evt, els)=>{ if(els.length && entries[els[0].index][0]!=='Other'){ toggleFilterValue(field, entries[els[0].index][0]); } }
-    }
-  });
-}
-function buildHBar(canvasId, field, data, topN, chartKey, colorFn){
-  const counts = {};
-  data.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
-  let entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-  if(topN) entries = entries.slice(0,topN);
-  entries.reverse();
-  destroyChart(chartKey);
-  const ctx = document.getElementById(canvasId);
-  if(!ctx) return;
-  charts[chartKey] = new Chart(ctx, {
-    type:'bar',
-    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]), backgroundColor: colorFn? entries.map((e,i)=>colorFn(i)) : '#c9a227cc', borderRadius:4, barThickness:14}]},
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales:{x:{grid:{color:'#1c2740'}}, y:{grid:{display:false}, ticks:{font:{size:10.5}}}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>' '+ctx.parsed.x+' complaints'}}},
-      onClick:(evt, els)=>{ if(els.length){ toggleFilterValue(field, entries[els[0].index][0]); } }
-    }
-  });
-}
-function buildFinance(data){
-  const groups = {};
-  data.forEach(r=>{
-    const k = monthKey(r.date);
-    if(k==='unknown') return;
-    if(!groups[k]) groups[k] = {lost:0, hold:0, refund:0};
-    groups[k].lost += r.lost; groups[k].hold += r.hold; groups[k].refund += r.refund;
-  });
-  const keys = Object.keys(groups).sort();
-  destroyChart('finance');
-  const ctx = document.getElementById('chartFinance');
-  if(!ctx) return;
-  charts.finance = new Chart(ctx, {
-    type:'bar',
-    data:{labels:keys, datasets:[
-      {label:'Lost', data:keys.map(k=>groups[k].lost), backgroundColor:'#c0453acc', borderRadius:3},
-      {label:'Held', data:keys.map(k=>groups[k].hold), backgroundColor:'#d99a3dcc', borderRadius:3},
-      {label:'Refunded', data:keys.map(k=>groups[k].refund), backgroundColor:'#3aa66bcc', borderRadius:3},
-    ]},
+    data:{
+      labels,
+      datasets:[{
+        data:labels.map(l=>counts[l]),
+        backgroundColor:labels.map((_,i)=>colorAt(i)),
+        borderWidth:1, borderColor:'#121a2c'
+      }]
+    },
     options:{
       responsive:true, maintainAspectRatio:false,
-      scales:{x:{grid:{display:false}}, y:{grid:{color:'#1c2740'}, ticks:{callback:v=>'\u20B9'+(v>=100000?(v/100000).toFixed(1)+'L':v)}}},
-      plugins:{legend:{labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=>' '+ctx.dataset.label+': '+fmtINR(ctx.parsed.y)}}}
-    }
-  });
-}
-function buildRecovery(data){
-  const groups = {};
-  data.forEach(r=>{
-    const k = r.circle;
-    if(!groups[k]) groups[k] = {lost:0, recovered:0};
-    groups[k].lost += r.lost; groups[k].recovered += (r.hold+r.refund);
-  });
-  let entries = Object.entries(groups).filter(([k,v])=>v.lost>0).map(([k,v])=>[k, Math.min(100, v.recovered/v.lost*100)]);
-  entries.sort((a,b)=>b[1]-a[1]);
-  destroyChart('recovery');
-  const ctx = document.getElementById('chartRecovery');
-  if(!ctx) return;
-  charts.recovery = new Chart(ctx, {
-    type:'bar',
-    data:{labels:entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1].toFixed(1)), backgroundColor:entries.map(e=> e[1]>50? '#3aa66bcc': e[1]>20? '#d99a3dcc':'#c0453acc'), borderRadius:4, barThickness:14}]},
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales:{x:{grid:{color:'#1c2740'}, max:100, ticks:{callback:v=>v+'%'}}, y:{grid:{display:false}, ticks:{font:{size:10.5}}}},
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>' Recovery: '+ctx.parsed.x+'%'}}}
-    }
-  });
-}
-function renderCharts(data){
-  buildTrend(data);
-  buildDoughnut('chartCategory','category',data,6,'category');
-  buildHBar('chartStatus','status',data,null,'status', i=>colorAt(i));
-  buildHBar('chartCircle','circle',data,null,'circle');
-  buildHBar('chartPs','ps',data,15,'ps');
-  buildHBar('chartSubcat','subcategory',data,10,'subcat');
-  buildDoughnut('chartPortal','portal',data,null,'portal');
-  buildDoughnut('chartCaseType','caseType',data,null,'casetype');
-  buildDoughnut('chartFir','fir',data,null,'fir');
-  buildFinance(data);
-  buildRecovery(data);
-}
-
-/* ============ TABLE ============ */
-let sortKey='date', sortDir=-1, page=1, pageSize=50, expandedRows=new Set(), editingRows=new Set();
-
-function editFieldRow(label, field, r, type, colspan){
-  const val = r[field]==null?'':r[field];
-  if(type==='select'){
-    const opts = field==='status' ? ['Under Process','Closed','Withdrawal','FIR Registered','Rejected','No Action']
-      : field==='fir' ? ['No','Yes'] : [];
-    return `<div class="ef-item${colspan?' span'+colspan:''}"><label>${label}</label><select data-field="${field}">${opts.map(o=>`<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('')}</select></div>`;
-  }
-  const inputType = (field==='lost'||field==='hold'||field==='refund') ? 'number' : 'text';
-  return `<div class="ef-item${colspan?' span'+colspan:''}"><label>${label}</label><input type="${inputType}" data-field="${field}" value="${String(val).replace(/"/g,'&quot;')}"></div>`;
-}
-function renderEditForm(r){
-  return `<div class="edit-form">
-    ${editFieldRow('Ack No.','ackNo',r)}
-    ${editFieldRow('PS','ps',r)}
-    ${editFieldRow('Circle','circle',r)}
-    ${editFieldRow('Status','status',r,'select')}
-    ${editFieldRow('Category','category',r)}
-    ${editFieldRow('Sub-Category','subcategory',r)}
-    ${editFieldRow('FIR','fir',r,'select')}
-    ${editFieldRow('Days','days',r)}
-    ${editFieldRow('Lost (\u20B9)','lost',r)}
-    ${editFieldRow('Hold (\u20B9)','hold',r)}
-    ${editFieldRow('Refund (\u20B9)','refund',r)}
-    ${editFieldRow('Ack Portal','portal',r)}
-    ${editFieldRow('Complainant','complainant',r,null,2)}
-    ${editFieldRow('Address','address',r,null,2)}
-    <div class="edit-form-actions">
-      <button class="btn primary" data-save="${r._id}">Save</button>
-      <button class="btn" data-cancel="${r._id}">Cancel</button>
-    </div>
-  </div>`;
-}
-function saveRowEdit(id){
-  const idx = DATA.findIndex(r=>r._id===id);
-  if(idx===-1) return;
-  const container = document.querySelector('[data-row-edit="'+id+'"]');
-  if(!container) return;
-  container.querySelectorAll('[data-field]').forEach(el=>{
-    const field = el.getAttribute('data-field');
-    let val = el.value;
-    if(field==='lost'||field==='hold'||field==='refund') val = parseFloat(val)||0;
-    if(field==='days') val = val===''? null : (parseFloat(val)||0);
-    DATA[idx][field] = val;
-  });
-  saveStoredData();
-  rebuildOptionLists();
-  FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
-  editingRows.delete(id);
-  onFiltersChanged();
-  showToast('Record updated', 'Changes to Ack No. <b>'+(DATA[idx].ackNo||'—')+'</b> saved.');
-}
-
-function renderTable(data){
-  const sorted = [...data].sort((a,b)=>{
-    let av=a[sortKey], bv=b[sortKey];
-    if(av==null) av=''; if(bv==null) bv='';
-    if(typeof av==='number' && typeof bv==='number') return (av-bv)*sortDir;
-    return String(av).localeCompare(String(bv))*sortDir;
-  });
-  const totalPages = Math.max(1, Math.ceil(sorted.length/pageSize));
-  if(page>totalPages) page=totalPages;
-  const startIdx = (page-1)*pageSize;
-  const pageData = sorted.slice(startIdx, startIdx+pageSize);
-  document.getElementById('tblCount').textContent = fmtNum(sorted.length)+' records';
-  const tbody = document.getElementById('tblBody');
-  if(pageData.length===0){
-    tbody.innerHTML = '<tr><td colspan="16" class="empty-state">No complaints loaded yet \u2014 click "Load from Repository" or upload an Excel file above to get started.</td></tr>';
-  } else {
-    tbody.innerHTML = pageData.map(r=>{
-      const statusCls = 'status-'+slug(r.status);
-      const rowId = String(r._id);
-      const isOpen = expandedRows.has(rowId);
-      const isEditing = editingRows.has(r._id);
-      const ageDays = effectiveDays(r);
-      let html = '<tr>'+
-        '<td class="expand-btn" data-row="'+rowId+'">'+(isOpen?'\u2212':'+')+'</td>'+
-        '<td class="edit-btn" data-edit-row="'+r._id+'">\u270E</td>'+
-        '<td>'+(r.sl!=null? Math.round(r.sl):'')+'</td>'+
-        '<td>'+(r.date||'-')+'</td>'+
-        '<td class="ack-no">'+(r.ackNo||'<span style="color:var(--warn);font-style:italic;">N/A</span>')+'</td>'+
-        '<td>'+r.ps+'</td>'+
-        '<td>'+r.circle+'</td>'+
-        '<td>'+r.portal+'</td>'+
-        '<td>'+r.category+'</td>'+
-        '<td>'+r.subcategory+'</td>'+
-        '<td>'+(r.lost? fmtINR(r.lost):'-')+'</td>'+
-        '<td>'+(r.hold? fmtINR(r.hold):'-')+'</td>'+
-        '<td>'+(r.refund? fmtINR(r.refund):'-')+'</td>'+
-        '<td><span class="status-pill '+statusCls+'">'+r.status+'</span></td>'+
-        '<td class="'+(r.fir==='Yes'?'fir-yes':'')+'">'+r.fir+(r.firNo? ' ('+r.firNo+')':'')+'</td>'+
-        '<td>'+(ageDays!=null? ageDays:'-')+'</td>'+
-      '</tr>';
-      if(isEditing){
-        html += '<tr class="row-detail"><td></td><td colspan="15" data-row-edit="'+r._id+'">'+renderEditForm(r)+'</td></tr>';
-      } else if(isOpen){
-        html += '<tr class="row-detail"><td></td><td colspan="15">'+
-          '<div class="rd-grid">'+
-            '<div class="rd-item"><b>Complainant</b>'+(r.complainant||'-')+'</div>'+
-            '<div class="rd-item"><b>Address</b>'+(r.address||'-')+'</div>'+
-            '<div class="rd-item"><b>Ack No.</b>'+(r.ackNo||'<span style="color:var(--warn);">Not Available</span>')+'</div>'+
-            '<div class="rd-item"><b>MO / Crime Info</b>'+(r.mo||'-')+'</div>'+
-            '<div class="rd-item"><b>Incident Date</b>'+(r.incidentDate||'-')+'</div>'+
-            '<div class="rd-item"><b>Email</b>'+(r.email||'-')+'</div>'+
-            '<div class="rd-item"><b>Suspect</b>'+([r.suspectName,r.suspectMobile,r.suspectId].filter(Boolean).join(' / ')||'-')+'</div>'+
-            '<div class="rd-item"><b>Timeline</b>'+(r.timeline||'-')+'</div>'+
-            '<div class="rd-item" style="grid-column:1/-1;"><b>Action Taken by PS</b>'+(r.actionTaken||'-')+'</div>'+
-          '</div>'+
-        '</td></tr>';
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10, font:{size:10}}},
+        tooltip:{callbacks:{label:ctx=> ` ${ctx.label}: ${ctx.parsed} (${(100*ctx.parsed/data.length).toFixed(1)}%)`}}
       }
-      return html;
-    }).join('');
-    tbody.querySelectorAll('.expand-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id = btn.getAttribute('data-row');
-        if(expandedRows.has(id)) expandedRows.delete(id); else expandedRows.add(id);
-        renderTable(getFiltered());
-      });
-    });
-    tbody.querySelectorAll('.edit-btn').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id = +btn.getAttribute('data-edit-row');
-        if(editingRows.has(id)) editingRows.delete(id); else { editingRows.add(id); expandedRows.delete(String(id)); }
-        renderTable(getFiltered());
-      });
-    });
-    tbody.querySelectorAll('[data-save]').forEach(btn=>{
-      btn.addEventListener('click', ()=> saveRowEdit(+btn.getAttribute('data-save')));
-    });
-    tbody.querySelectorAll('[data-cancel]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ editingRows.delete(+btn.getAttribute('data-cancel')); renderTable(getFiltered()); });
-    });
-  }
-  document.getElementById('pgInfo').textContent = sorted.length? 'Showing '+(startIdx+1)+'\u2013'+Math.min(startIdx+pageData.length, sorted.length)+' of '+sorted.length : '';
-  document.getElementById('pgCur').textContent = 'Page '+page+' / '+totalPages;
-  document.getElementById('pgFirst').disabled = page<=1;
-  document.getElementById('pgPrev').disabled = page<=1;
-  document.getElementById('pgNext').disabled = page>=totalPages;
-  document.getElementById('pgLast').disabled = page>=totalPages;
-  document.querySelectorAll('#dataTable thead th[data-k]').forEach(th=>{
-    const k = th.getAttribute('data-k');
-    th.innerHTML = th.textContent.replace(/\s*[\u25B2\u25BC]\s*$/,'') + (sortKey===k ? '<span class="arrow">'+(sortDir===1?'\u25B2':'\u25BC')+'</span>' : '');
+    }
   });
 }
-document.querySelectorAll('#dataTable thead th[data-k]').forEach(th=>{
-  th.addEventListener('click', ()=>{
+
+function buildStatus(data){
+  const counts = {};
+  data.forEach(r=>{ counts[r.status] = (counts[r.status]||0)+1; });
+  const labels = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  destroyChart('status');
+  charts.status = new Chart(document.getElementById('chartStatus'), {
+    type:'doughnut',
+    data:{
+      labels,
+      datasets:[{
+        data:labels.map(l=>counts[l]),
+        backgroundColor:labels.map(l=>{
+          if(l==='Closed') return 'var(--good)';
+          if(l==='Under Process') return 'var(--warn)';
+          if(l==='FIR Registered') return 'var(--maroon-light)';
+          return 'var(--text-faint)';
+        }),
+        borderWidth:1, borderColor:'#121a2c'
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=> ` ${ctx.label}: ${ctx.parsed} (${(100*ctx.parsed/data.length).toFixed(1)}%)`}}
+      }
+    }
+  });
+}
+
+let circleChartType = 'circle';
+function buildCircle(data) {
+  const counts = {};
+  data.forEach(r => {
+    const key = r[circleChartType] || 'Unspecified';
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+  destroyChart('circle');
+  
+  const titleEl = document.getElementById('circleChartTitle');
+  titleEl.innerHTML = circleChartType === 'circle' 
+    ? 'Circle-wise Complaints <span>click to filter</span>'
+    : 'Sub-Division-wise Complaints <span>click to filter</span>';
+    
+  charts.circle = new Chart(document.getElementById('chartCircle'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Complaints',
+        data: labels.map(l => counts[l]),
+        backgroundColor: circleChartType === 'circle' ? '#7d1f2e99' : '#4a7fc999',
+        borderColor: circleChartType === 'circle' ? 'var(--maroon-light)' : '#6a8fd8',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      onClick: (e, activeEl) => {
+        if (activeEl.length > 0) {
+          const idx = activeEl[0].index;
+          const val = labels[idx];
+          toggleFilterValue(circleChartType, val);
+        }
+      },
+      scales: { y: { beginAtZero: true, grid: { color: '#1c2740' } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function buildPs(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.ps] = (counts[r.ps] || 0) + 1; });
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]).slice(0, 15);
+  destroyChart('ps');
+  charts.ps = new Chart(document.getElementById('chartPs'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Complaints',
+        data: labels.map(l => counts[l]),
+        backgroundColor: '#4a7fc999',
+        borderColor: '#6a8fd8',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      onClick: (e, activeEl) => {
+        if (activeEl.length > 0) {
+          const idx = activeEl[0].index;
+          const psName = labels[idx];
+          toggleFilterValue('ps', psName);
+        }
+      },
+      scales: { x: { beginAtZero: true, grid: { color: '#1c2740' } }, y: { grid: { display: false } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function buildSubcat(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.subcategory] = (counts[r.subcategory] || 0) + 1; });
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]).slice(0, 10);
+  destroyChart('subcat');
+  charts.subcat = new Chart(document.getElementById('chartSubcat'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Complaints',
+        data: labels.map(l => counts[l]),
+        backgroundColor: '#d99a3d99',
+        borderColor: 'var(--warn)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, grid: { color: '#1c2740' } }, y: { grid: { display: false }, ticks: { font: { size: 9.5 } } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function buildPortal(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.portal] = (counts[r.portal] || 0) + 1; });
+  const labels = Object.keys(counts);
+  destroyChart('portal');
+  charts.portal = new Chart(document.getElementById('chartPortal'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data: labels.map(l => counts[l]),
+        backgroundColor: ['#7d1f2e99', '#c9a22799'],
+        borderColor: '#121a2c', borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+    }
+  });
+}
+
+function buildCaseType(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.caseType] = (counts[r.caseType] || 0) + 1; });
+  const order = ['Low Value (<10k)', 'Medium Value (10k-50k)', 'High Value (50k-2L)', 'Critical Value (>2L)', 'Unspecified'];
+  const labels = order.filter(o => counts[o] > 0);
+  destroyChart('caseType');
+  charts.caseType = new Chart(document.getElementById('chartCaseType'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data: labels.map(l => counts[l]),
+        backgroundColor: labels.map((_,i) => colorAt(i + 2)),
+        borderColor: '#121a2c', borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+    }
+  });
+}
+
+function buildFir(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.fir] = (counts[r.fir] || 0) + 1; });
+  const labels = Object.keys(counts);
+  destroyChart('fir');
+  charts.fir = new Chart(document.getElementById('chartFir'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data: labels.map(l => counts[l]),
+        backgroundColor: ['#5c678599', '#3aa66b99'],
+        borderColor: '#121a2c', borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+    }
+  });
+}
+
+function buildFinance(data) {
+  const months = {};
+  data.forEach(r => {
+    const m = monthKey(r.date);
+    if (!months[m]) months[m] = { lost: 0, hold: 0, refund: 0 };
+    months[m].lost += r.lost;
+    months[m].hold += r.hold;
+    months[m].refund += r.refund;
+  });
+  const labels = Object.keys(months).filter(m => m !== 'unknown').sort();
+  destroyChart('finance');
+  charts.finance = new Chart(document.getElementById('chartFinance'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Lost Amount', data: labels.map(l => months[l].lost), backgroundColor: '#c0453a99', borderRadius: 3 },
+        { label: 'Amount Held', data: labels.map(l => months[l].hold), backgroundColor: '#d99a3d99', borderRadius: 3 },
+        { label: 'Amount Refunded', data: labels.map(l => months[l].refund), backgroundColor: '#3aa66b99', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: {
+          grid: { color: '#1c2740' },
+          ticks: { callback: v => '₹' + (v >= 100000 ? (v / 100000).toFixed(1) + 'L' : v) }
+        }
+      },
+      plugins: { legend: { labels: { boxWidth: 10 } } }
+    }
+  });
+}
+
+let recoveryChartType = 'circle';
+function buildRecovery(data) {
+  const groups = {};
+  data.forEach(r => {
+    const key = r[recoveryChartType] || 'Unspecified';
+    if (!groups[key]) groups[key] = { lost: 0, recovered: 0 };
+    groups[key].lost += r.lost;
+    groups[key].recovered += (r.hold + r.refund);
+  });
+  const labels = Object.keys(groups).sort();
+  const rates = labels.map(l => {
+    const g = groups[l];
+    return g.lost > 0 ? (g.recovered / g.lost * 100) : 0;
+  });
+  destroyChart('recovery');
+  
+  const titleEl = document.getElementById('recoveryChartTitle');
+  titleEl.textContent = recoveryChartType === 'circle'
+    ? 'Recovery Performance by Circle'
+    : 'Recovery Performance by Sub-Division';
+    
+  charts.recovery = new Chart(document.getElementById('chartRecovery'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Recovery Rate (%)',
+        data: rates,
+        backgroundColor: '#3aa66b99',
+        borderColor: '#3aa66b',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true, max: 100, grid: { color: '#1c2740' },
+          ticks: { callback: v => v + '%' }
+        }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+/* ============ TABLE RENDERING & SORTING ============ */
+let sortKey = 'date';
+let sortDesc = true;
+let curPage = 1;
+let pageSize = 50;
+let expandedRows = new Set();
+
+function renderTable(filteredData) {
+  const sorted = [...filteredData].sort((a, b) => {
+    let va = a[sortKey];
+    let vb = b[sortKey];
+    if (va === null || va === undefined) va = '';
+    if (vb === null || vb === undefined) vb = '';
+    if (typeof va === 'string') {
+      return sortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
+    } else {
+      return sortDesc ? vb - va : va - vb;
+    }
+  });
+
+  const total = sorted.length;
+  document.getElementById('tblCount').textContent = `${total} records`;
+  
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (curPage > totalPages) curPage = totalPages;
+  const start = (curPage - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
+  
+  const pageData = sorted.slice(start, end);
+  
+  const tbody = document.getElementById('tblBody');
+  if (pageData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="16" class="empty-state">No complaints match the active filters.</td></tr>`;
+    document.getElementById('pgInfo').textContent = 'Showing 0 to 0 of 0 entries';
+    document.getElementById('pgCur').textContent = '1 / 1';
+    document.getElementById('pgFirst').disabled = true;
+    document.getElementById('pgPrev').disabled = true;
+    document.getElementById('pgNext').disabled = true;
+    document.getElementById('pgLast').disabled = true;
+    return;
+  }
+  
+  tbody.innerHTML = pageData.map((r) => {
+    const isExpanded = expandedRows.has(r.ackNo || r.sl);
+    const expandIcon = isExpanded ? '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-right"></i>';
+    const rowId = r.ackNo || r.sl;
+    
+    let rowHtml = `
+      <tr data-id="${rowId}">
+        <td class="expand-btn">${expandIcon}</td>
+        <td>${r.sl}</td>
+        <td>${r.date || '–'}</td>
+        <td class="ack-no">${r.ackNo || '–'}</td>
+        <td>${r.ps}</td>
+        <td>${r.subdivision || '–'}</td>
+        <td>${r.circle}</td>
+        <td>${r.portal}</td>
+        <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.category}">${r.category}</td>
+        <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${r.subcategory}">${r.subcategory}</td>
+        <td>${fmtNum(r.lost)}</td>
+        <td>${fmtNum(r.hold)}</td>
+        <td>${fmtNum(r.refund)}</td>
+        <td><span class="status-pill status-${slug(r.status)}">${r.status}</span></td>
+        <td class="${r.fir === 'Yes' ? 'fir-yes' : ''}">${r.fir}</td>
+        <td>${r.days !== null ? r.days : '–'}</td>
+      </tr>
+    `;
+    
+    if (isExpanded) {
+      rowHtml += `
+        <tr class="row-detail">
+          <td colspan="16">
+            <div class="rd-grid">
+              <div class="rd-item"><b>Complainant Name & Phone</b>${r.complainant || '–'}</div>
+              <div class="rd-item"><b>Ack No.</b>${r.ackNo || '–'}</div>
+              <div class="rd-item"><b>Victim Age</b>${r.age !== null ? r.age : '–'}</div>
+              <div class="rd-item"><b>Address</b>${r.address || '–'}</div>
+              <div class="rd-item"><b>Modus Operandi (MO)</b>${r.mo || '–'}</div>
+              <div class="rd-item"><b>Incident Date</b>${r.incidentDate || '–'}</div>
+              <div class="rd-item"><b>FIR Registration details</b>${r.firNo || '–'}</div>
+              <div class="rd-item"><b>Action Taken by PS</b>${r.actionTaken || '–'}</div>
+              <div class="rd-item"><b>Date of Action</b>${r.dateOfAction || '–'}</div>
+              <div class="rd-item"><b>Court Memo Filed</b>${r.courtMemo || '–'}</div>
+              <div class="rd-item"><b>Court Order Obtained</b>${r.courtOrder || '–'}</div>
+              <div class="rd-item"><b>Timeline / SLA</b>${r.timeline || '–'}</div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+    return rowHtml;
+  }).join('');
+
+  tbody.querySelectorAll('.expand-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tr = btn.closest('tr');
+      const id = tr.getAttribute('data-id');
+      if (expandedRows.has(id)) {
+        expandedRows.delete(id);
+      } else {
+        expandedRows.add(id);
+      }
+      renderTable(filteredData);
+    });
+  });
+
+  document.getElementById('pgInfo').textContent = `Showing ${start + 1} to ${end} of ${total} entries`;
+  document.getElementById('pgCur').textContent = `${curPage} / ${totalPages}`;
+  document.getElementById('pgFirst').disabled = curPage === 1;
+  document.getElementById('pgPrev').disabled = curPage === 1;
+  document.getElementById('pgNext').disabled = curPage === totalPages;
+  document.getElementById('pgLast').disabled = curPage === totalPages;
+
+  // Pagination click handlers
+  const setPage = (p) => { curPage = p; renderTable(filteredData); };
+  document.getElementById('pgFirst').onclick = () => setPage(1);
+  document.getElementById('pgPrev').onclick = () => setPage(Math.max(1, curPage - 1));
+  document.getElementById('pgNext').onclick = () => setPage(Math.min(totalPages, curPage + 1));
+  document.getElementById('pgLast').onclick = () => setPage(totalPages);
+}
+
+/* ============ REPORTS GENERATION ============ */
+const REPORTS_CONFIG = [
+  { id: 'subdivision', label: 'Sub-Division Summary' },
+  { id: 'circle', label: 'Circle Summary' },
+  { id: 'ps', label: 'PS Summary' },
+  { id: 'category', label: 'Category Summary' },
+  { id: 'status', label: 'Status Summary' }
+];
+let activeReportTab = 'subdivision';
+
+function buildReportTabs() {
+  const container = document.getElementById('reportTabs');
+  container.innerHTML = REPORTS_CONFIG.map(tab => {
+    return `<button class="report-tab ${tab.id === activeReportTab ? 'active' : ''}" data-id="${tab.id}">${tab.label}</button>`;
+  }).join('');
+  
+  container.querySelectorAll('.report-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeReportTab = btn.getAttribute('data-id');
+      buildReportTabs();
+      renderReport();
+    });
+  });
+}
+
+function renderReport() {
+  const filtered = getFiltered();
+  const table = document.getElementById('reportTable');
+  const title = document.getElementById('reportTitle');
+  const sub = document.getElementById('reportSub');
+  
+  let html = '';
+  
+  if (activeReportTab === 'subdivision') {
+    title.textContent = 'Sub-Division-wise Operational Summary';
+    sub.textContent = 'Financial metrics and FIR registration rates aggregated by Police Sub-Division.';
+    
+    const agg = {};
+    filtered.forEach(r => {
+      const key = r.subdivision || 'Unspecified';
+      if (!agg[key]) agg[key] = { count: 0, lost: 0, hold: 0, refund: 0, fir: 0 };
+      agg[key].count++;
+      agg[key].lost += r.lost;
+      agg[key].hold += r.hold;
+      agg[key].refund += r.refund;
+      if (r.fir === 'Yes') agg[key].fir++;
+    });
+    
+    const rows = Object.keys(agg).sort();
+    
+    html = `
+      <thead>
+        <tr>
+          <th style="text-align: left;">Sub-Division</th>
+          <th>Total Complaints</th>
+          <th>Lost Amount</th>
+          <th>Held Amount</th>
+          <th>Refunded Amount</th>
+          <th>Recovery Rate</th>
+          <th>FIRs Registered</th>
+          <th>FIR %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(c => {
+          const a = agg[c];
+          const rec = a.hold + a.refund;
+          const rate = a.lost > 0 ? (rec / a.lost * 100) : 0;
+          const firPct = a.count > 0 ? (a.fir / a.count * 100) : 0;
+          return `
+            <tr>
+              <td style="text-align: left; font-weight: 500; color: #fff;">${c}</td>
+              <td>${fmtNum(a.count)}</td>
+              <td>${fmtINR(a.lost)}</td>
+              <td>${fmtINR(a.hold)}</td>
+              <td>${fmtINR(a.refund)}</td>
+              <td style="color: var(--good);">${rate.toFixed(1)}%</td>
+              <td>${fmtNum(a.fir)}</td>
+              <td>${firPct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('')}
+        <tr class="subtotal-row">
+          <td style="text-align: left;">TOTAL</td>
+          <td>${fmtNum(filtered.length)}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.lost, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.hold, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.refund, 0))}</td>
+          <td>${(filtered.reduce((s,r) => s+r.lost, 0) > 0 ? ((filtered.reduce((s,r) => s+r.hold, 0) + filtered.reduce((s,r) => s+r.refund, 0)) / filtered.reduce((s,r) => s+r.lost, 0) * 100) : 0).toFixed(1)}%</td>
+          <td>${fmtNum(filtered.filter(r => r.fir === 'Yes').length)}</td>
+          <td>${(filtered.length > 0 ? (filtered.filter(r => r.fir === 'Yes').length / filtered.length * 100) : 0).toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    `;
+  } else if (activeReportTab === 'circle') {
+    title.textContent = 'Circle-wise Operational Summary';
+    sub.textContent = 'Financial metrics and FIR registration rates aggregated by Police Circle.';
+    
+    const agg = {};
+    filtered.forEach(r => {
+      const key = r.circle || 'Unspecified';
+      if (!agg[key]) agg[key] = { count: 0, lost: 0, hold: 0, refund: 0, fir: 0 };
+      agg[key].count++;
+      agg[key].lost += r.lost;
+      agg[key].hold += r.hold;
+      agg[key].refund += r.refund;
+      if (r.fir === 'Yes') agg[key].fir++;
+    });
+    
+    const rows = Object.keys(agg).sort();
+    
+    html = `
+      <thead>
+        <tr>
+          <th style="text-align: left;">Circle</th>
+          <th>Total Complaints</th>
+          <th>Lost Amount</th>
+          <th>Held Amount</th>
+          <th>Refunded Amount</th>
+          <th>Recovery Rate</th>
+          <th>FIRs Registered</th>
+          <th>FIR %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(c => {
+          const a = agg[c];
+          const rec = a.hold + a.refund;
+          const rate = a.lost > 0 ? (rec / a.lost * 100) : 0;
+          const firPct = a.count > 0 ? (a.fir / a.count * 100) : 0;
+          return `
+            <tr>
+              <td style="text-align: left; font-weight: 500; color: #fff;">${c}</td>
+              <td>${fmtNum(a.count)}</td>
+              <td>${fmtINR(a.lost)}</td>
+              <td>${fmtINR(a.hold)}</td>
+              <td>${fmtINR(a.refund)}</td>
+              <td style="color: var(--good);">${rate.toFixed(1)}%</td>
+              <td>${fmtNum(a.fir)}</td>
+              <td>${firPct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('')}
+        <tr class="subtotal-row">
+          <td style="text-align: left;">TOTAL</td>
+          <td>${fmtNum(filtered.length)}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.lost, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.hold, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.refund, 0))}</td>
+          <td>${(filtered.reduce((s,r) => s+r.lost, 0) > 0 ? ((filtered.reduce((s,r) => s+r.hold, 0) + filtered.reduce((s,r) => s+r.refund, 0)) / filtered.reduce((s,r) => s+r.lost, 0) * 100) : 0).toFixed(1)}%</td>
+          <td>${fmtNum(filtered.filter(r => r.fir === 'Yes').length)}</td>
+          <td>${(filtered.length > 0 ? (filtered.filter(r => r.fir === 'Yes').length / filtered.length * 100) : 0).toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    `;
+  } else if (activeReportTab === 'ps') {
+    title.textContent = 'Police Station-wise Operational Summary';
+    sub.textContent = 'Performance stats for each individual police station.';
+    
+    const agg = {};
+    filtered.forEach(r => {
+      if (!agg[r.ps]) agg[r.ps] = { circle: r.circle, subdivision: r.subdivision, count: 0, lost: 0, hold: 0, refund: 0, fir: 0 };
+      agg[r.ps].count++;
+      agg[r.ps].lost += r.lost;
+      agg[r.ps].hold += r.hold;
+      agg[r.ps].refund += r.refund;
+      if (r.fir === 'Yes') agg[r.ps].fir++;
+    });
+    
+    const rows = Object.keys(agg).sort();
+    
+    html = `
+      <thead>
+        <tr>
+          <th style="text-align: left;">Police Station</th>
+          <th style="text-align: left;">Sub-Division</th>
+          <th style="text-align: left;">Circle</th>
+          <th>Total Complaints</th>
+          <th>Lost Amount</th>
+          <th>Held Amount</th>
+          <th>Refunded Amount</th>
+          <th>Recovery Rate</th>
+          <th>FIRs Registered</th>
+          <th>FIR %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(ps => {
+          const a = agg[ps];
+          const rec = a.hold + a.refund;
+          const rate = a.lost > 0 ? (rec / a.lost * 100) : 0;
+          const firPct = a.count > 0 ? (a.fir / a.count * 100) : 0;
+          return `
+            <tr>
+              <td style="text-align: left; font-weight: 500; color: #fff;">${ps}</td>
+              <td style="text-align: left;">${a.subdivision || '–'}</td>
+              <td style="text-align: left;">${a.circle}</td>
+              <td>${fmtNum(a.count)}</td>
+              <td>${fmtINR(a.lost)}</td>
+              <td>${fmtINR(a.hold)}</td>
+              <td>${fmtINR(a.refund)}</td>
+              <td style="color: var(--good);">${rate.toFixed(1)}%</td>
+              <td>${fmtNum(a.fir)}</td>
+              <td>${firPct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('')}
+        <tr class="subtotal-row">
+          <td style="text-align: left;" colspan="3">TOTAL</td>
+          <td>${fmtNum(filtered.length)}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.lost, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.hold, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.refund, 0))}</td>
+          <td>${(filtered.reduce((s,r) => s+r.lost, 0) > 0 ? ((filtered.reduce((s,r) => s+r.hold, 0) + filtered.reduce((s,r) => s+r.refund, 0)) / filtered.reduce((s,r) => s+r.lost, 0) * 100) : 0).toFixed(1)}%</td>
+          <td>${fmtNum(filtered.filter(r => r.fir === 'Yes').length)}</td>
+          <td>${(filtered.length > 0 ? (filtered.filter(r => r.fir === 'Yes').length / filtered.length * 100) : 0).toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    `;
+  } else if (activeReportTab === 'category') {
+    title.textContent = 'Category-wise Cyber Complaint Summary';
+    sub.textContent = 'Analysis of cybercrime types and associated financial damage.';
+    
+    const agg = {};
+    filtered.forEach(r => {
+      if (!agg[r.category]) agg[r.category] = { count: 0, lost: 0, hold: 0, refund: 0, fir: 0 };
+      agg[r.category].count++;
+      agg[r.category].lost += r.lost;
+      agg[r.category].hold += r.hold;
+      agg[r.category].refund += r.refund;
+      if (r.fir === 'Yes') agg[r.category].fir++;
+    });
+    
+    const rows = Object.keys(agg).sort();
+    
+    html = `
+      <thead>
+        <tr>
+          <th style="text-align: left;">Category</th>
+          <th>Total Complaints</th>
+          <th>Lost Amount</th>
+          <th>Held Amount</th>
+          <th>Refunded Amount</th>
+          <th>Recovery Rate</th>
+          <th>FIRs Registered</th>
+          <th>FIR %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(c => {
+          const a = agg[c];
+          const rec = a.hold + a.refund;
+          const rate = a.lost > 0 ? (rec / a.lost * 100) : 0;
+          const firPct = a.count > 0 ? (a.fir / a.count * 100) : 0;
+          return `
+            <tr>
+              <td style="text-align: left; font-weight: 500; color: #fff;">${c}</td>
+              <td>${fmtNum(a.count)}</td>
+              <td>${fmtINR(a.lost)}</td>
+              <td>${fmtINR(a.hold)}</td>
+              <td>${fmtINR(a.refund)}</td>
+              <td style="color: var(--good);">${rate.toFixed(1)}%</td>
+              <td>${fmtNum(a.fir)}</td>
+              <td>${firPct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('')}
+        <tr class="subtotal-row">
+          <td style="text-align: left;">TOTAL</td>
+          <td>${fmtNum(filtered.length)}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.lost, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.hold, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.refund, 0))}</td>
+          <td>${(filtered.reduce((s,r) => s+r.lost, 0) > 0 ? ((filtered.reduce((s,r) => s+r.hold, 0) + filtered.reduce((s,r) => s+r.refund, 0)) / filtered.reduce((s,r) => s+r.lost, 0) * 100) : 0).toFixed(1)}%</td>
+          <td>${fmtNum(filtered.filter(r => r.fir === 'Yes').length)}</td>
+          <td>${(filtered.length > 0 ? (filtered.filter(r => r.fir === 'Yes').length / filtered.length * 100) : 0).toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    `;
+  } else if (activeReportTab === 'status') {
+    title.textContent = 'Complaint Status Summary';
+    sub.textContent = 'Operational status metrics and financial distributions.';
+    
+    const agg = {};
+    filtered.forEach(r => {
+      if (!agg[r.status]) agg[r.status] = { count: 0, lost: 0, hold: 0, refund: 0, fir: 0 };
+      agg[r.status].count++;
+      agg[r.status].lost += r.lost;
+      agg[r.status].hold += r.hold;
+      agg[r.status].refund += r.refund;
+      if (r.fir === 'Yes') agg[r.status].fir++;
+    });
+    
+    const rows = Object.keys(agg).sort();
+    
+    html = `
+      <thead>
+        <tr>
+          <th style="text-align: left;">Status</th>
+          <th>Total Complaints</th>
+          <th>Lost Amount</th>
+          <th>Held Amount</th>
+          <th>Refunded Amount</th>
+          <th>Recovery Rate</th>
+          <th>FIRs Registered</th>
+          <th>FIR %</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(c => {
+          const a = agg[c];
+          const rec = a.hold + a.refund;
+          const rate = a.lost > 0 ? (rec / a.lost * 100) : 0;
+          const firPct = a.count > 0 ? (a.fir / a.count * 100) : 0;
+          return `
+            <tr>
+              <td style="text-align: left; font-weight: 500; color: #fff;">${c}</td>
+              <td>${fmtNum(a.count)}</td>
+              <td>${fmtINR(a.lost)}</td>
+              <td>${fmtINR(a.hold)}</td>
+              <td>${fmtINR(a.refund)}</td>
+              <td style="color: var(--good);">${rate.toFixed(1)}%</td>
+              <td>${fmtNum(a.fir)}</td>
+              <td>${firPct.toFixed(1)}%</td>
+            </tr>
+          `;
+        }).join('')}
+        <tr class="subtotal-row">
+          <td style="text-align: left;">TOTAL</td>
+          <td>${fmtNum(filtered.length)}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.lost, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.hold, 0))}</td>
+          <td>${fmtINR(filtered.reduce((s,r) => s+r.refund, 0))}</td>
+          <td>${(filtered.reduce((s,r) => s+r.lost, 0) > 0 ? ((filtered.reduce((s,r) => s+r.hold, 0) + filtered.reduce((s,r) => s+r.refund, 0)) / filtered.reduce((s,r) => s+r.lost, 0) * 100) : 0).toFixed(1)}%</td>
+          <td>${fmtNum(filtered.filter(r => r.fir === 'Yes').length)}</td>
+          <td>(filtered.length > 0 ? (filtered.filter(r => r.fir === 'Yes').length / filtered.length * 100) : 0).toFixed(1)}%</td>
+        </tr>
+      </tbody>
+    `;
+  }
+  table.innerHTML = html;
+}
+
+/* ============ EXPORT LISTENERS ============ */
+document.getElementById('btnExport').addEventListener('click', () => {
+  const filtered = getFiltered();
+  const headers = ['SL', 'Date', 'PS', 'Sub-Division', 'Circle', 'Portal', 'Ack No', 'Complainant', 'Age', 'Address', 'Category', 'Sub-Category', 'Lost', 'Hold', 'Refund', 'Status', 'FIR', 'Days'];
+  const rows = filtered.map(r => [
+    r.sl, r.date, r.ps, r.subdivision || '–', r.circle, r.portal, r.ackNo, r.complainant, r.age, r.address, r.category, r.subcategory, r.lost, r.hold, r.refund, r.status, r.fir, r.days
+  ]);
+  let csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `ncrp_complaints_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
+
+document.getElementById('btnReportExcel').addEventListener('click', () => {
+  const table = document.getElementById('reportTable');
+  const wb = XLSX.utils.table_to_book(table, { sheet: "Report Summary" });
+  XLSX.writeFile(wb, `ncrp_report_${activeReportTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
+});
+
+document.getElementById('btnReportPdf').addEventListener('click', () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'pt', 'a4');
+  const title = document.getElementById('reportTitle').textContent;
+  const sub = document.getElementById('reportSub').textContent;
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(125, 31, 46); // Maroon
+  doc.text("SRIKAKULAM DISTRICT POLICE - CYBER CELL", 40, 40);
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(38, 49, 77); // Panel border color
+  doc.text(title, 40, 60);
+  doc.setFontSize(9);
+  doc.setTextColor(92, 103, 133); // Faint text
+  doc.text(sub, 40, 75);
+  
+  doc.autoTable({
+    html: '#reportTable',
+    startY: 95,
+    styles: { fontSize: 8, cellPadding: 6 },
+    headStyles: { fillColor: [21, 29, 49], textColor: [230, 198, 103] }, // Dark/Gold
+    alternateRowStyles: { fillColor: [240, 242, 245] },
+    margin: { top: 90, left: 40, right: 40 }
+  });
+  
+  doc.save(`ncrp_report_${activeReportTab}_${new Date().toISOString().slice(0,10)}.pdf`);
+});
+
+/* ============ CORE FILTERS CONTROL ============ */
+function onFiltersChanged(){
+  const filtered = getFiltered();
+  renderKpis(filtered);
+  buildTrend(filtered);
+  buildCategory(filtered);
+  buildStatus(filtered);
+  buildCircle(filtered);
+  buildPs(filtered);
+  buildSubcat(filtered);
+  buildPortal(filtered);
+  buildCaseType(filtered);
+  buildFir(filtered);
+  buildFinance(filtered);
+  buildRecovery(filtered);
+  
+  curPage = 1;
+  renderTable(filtered);
+  renderReport();
+  renderActiveTags();
+}
+
+document.getElementById('fDateFrom').addEventListener('change', e=>{ filters.dateFrom=e.target.value; onFiltersChanged(); });
+document.getElementById('fDateTo').addEventListener('change', e=>{ filters.dateTo=e.target.value; onFiltersChanged(); });
+document.getElementById('fSearch').addEventListener('input', e=>{ filters.search=e.target.value; onFiltersChanged(); });
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  filters.dateFrom=''; filters.dateTo=''; filters.search='';
+  document.getElementById('fDateFrom').value='';
+  document.getElementById('fDateTo').value='';
+  document.getElementById('fSearch').value='';
+  FIELDS.forEach(f=>{ filters[f]=new Set(); if(mselRefs[f]){mselRefs[f].updateBtnLabel(); mselRefs[f].renderList('');} });
+  onFiltersChanged();
+});
+
+document.getElementById('pageSizeSel').addEventListener('change', e=>{
+  pageSize = parseInt(e.target.value);
+  curPage = 1;
+  renderTable(getFiltered());
+});
+
+// Sort key listener
+document.querySelectorAll('#dataTable th[data-k]').forEach(th => {
+  th.addEventListener('click', () => {
     const k = th.getAttribute('data-k');
-    if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir = (k==='date')? -1: 1; }
+    if (sortKey === k) {
+      sortDesc = !sortDesc;
+    } else {
+      sortKey = k;
+      sortDesc = true;
+    }
+    document.querySelectorAll('#dataTable th .arrow').forEach(a => a.textContent = '');
+    let arrow = th.querySelector('.arrow');
+    if (!arrow) {
+      arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      th.appendChild(arrow);
+    }
+    arrow.textContent = sortDesc ? ' ▼' : ' ▲';
     renderTable(getFiltered());
   });
 });
-document.getElementById('pageSizeSel').addEventListener('change', e=>{ pageSize=+e.target.value; page=1; renderTable(getFiltered()); });
-document.getElementById('pgFirst').addEventListener('click', ()=>{ page=1; renderTable(getFiltered()); });
-document.getElementById('pgPrev').addEventListener('click', ()=>{ page=Math.max(1,page-1); renderTable(getFiltered()); });
-document.getElementById('pgNext').addEventListener('click', ()=>{ page=page+1; renderTable(getFiltered()); });
-document.getElementById('pgLast').addEventListener('click', ()=>{ page=999999; renderTable(getFiltered()); });
 
-/* ============ EXPORT ============ */
-function exportCsv(){
-  const data = getFiltered();
-  const cols = ['sl','date','ackNo','ps','circle','portal','complainant','address','category','subcategory','lost','hold','refund','mo','incidentDate','status','actionTaken','dateOfAction','fir','firNo','courtMemo','courtOrder','days','timeline','caseType','email','suspectName','suspectMobile','suspectId'];
-  const header = cols.join(',');
-  const esc = v => '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const lines = data.map(r=> cols.map(c=>esc(r[c])).join(','));
-  const csv = [header, ...lines].join('\n');
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'ncrp_complaints_filtered_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-document.getElementById('btnExport').addEventListener('click', exportCsv);
-
-/* ============ WIRE UP FILTERS ============ */
-function onFiltersChanged(){
-  page=1;
-  const data = getFiltered();
-  renderActiveTags();
-  renderKpis(data);
-  renderCharts(data);
-  renderTable(data);
-  if(typeof renderActiveReport === 'function') renderActiveReport();
-}
-document.getElementById('fDateFrom').addEventListener('change', e=>{ filters.dateFrom=e.target.value; onFiltersChanged(); });
-document.getElementById('fDateTo').addEventListener('change', e=>{ filters.dateTo=e.target.value; onFiltersChanged(); });
-let searchDebounce;
-document.getElementById('fSearch').addEventListener('input', e=>{
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(()=>{ filters.search=e.target.value; onFiltersChanged(); }, 250);
-});
-document.getElementById('btnReset').addEventListener('click', ()=>{
-  filters = {dateFrom:'', dateTo:'', search:'', circle:new Set(), ps:new Set(), category:new Set(), subcategory:new Set(), status:new Set(), portal:new Set(), caseType:new Set(), fir:new Set()};
-  document.getElementById('fDateFrom').value=''; document.getElementById('fDateTo').value=''; document.getElementById('fSearch').value='';
-  FIELDS.forEach(f=>{ mselRefs[f].updateBtnLabel(); mselRefs[f].renderList(''); });
-  onFiltersChanged();
-});
-document.getElementById('trendToggle').addEventListener('click', e=>{
-  if(e.target.tagName==='BUTTON'){
-    trendGrouping = e.target.getAttribute('data-g');
-    document.querySelectorAll('#trendToggle button').forEach(b=>b.classList.remove('active'));
-    e.target.classList.add('active');
+// Trend line, bar/recovery chart toggles
+document.querySelectorAll('#trendToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#trendToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    trendGrouping = btn.getAttribute('data-g');
     buildTrend(getFiltered());
-  }
+  });
 });
 
-/* ============ REPORTS ============ */
-function fmtCell(v, money){ return money ? (v? fmtINR(v): '\u20B90') : fmtNum(v); }
-function buildGroupedReport(data, colDefs){
-  const byCircle = {};
-  data.forEach(r=>{
-    (byCircle[r.circle] = byCircle[r.circle] || {});
-    (byCircle[r.circle][r.ps] = byCircle[r.circle][r.ps] || []).push(r);
+document.querySelectorAll('#circleToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#circleToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    circleChartType = btn.getAttribute('data-type');
+    buildCircle(getFiltered());
   });
-  const rows = [];
-  let sn = 1;
-  Object.keys(byCircle).sort().forEach(circle=>{
-    const psMap = byCircle[circle];
-    const circleRows = [];
-    Object.keys(psMap).sort().forEach(ps=>{
-      const psRows = psMap[ps];
-      const rowObj = {sno:sn++, label:ps, isSubtotal:false};
-      colDefs.forEach(c=> rowObj[c.key] = c.calc(psRows));
-      rows.push(rowObj);
-      circleRows.push(...psRows);
-    });
-    const subtotal = {sno:null, label:circle, isSubtotal:true};
-    colDefs.forEach(c=> subtotal[c.key] = c.calc(circleRows));
-    rows.push(subtotal);
-  });
-  return rows;
-}
-const UP = r => r.status === 'Under Process';
-const STATUS_COLS = [
-  {key:'total', label:'Total', calc:rows=>rows.length},
-  {key:'fir', label:'FIR Registered', calc:rows=>rows.filter(r=>r.status==='FIR Registered').length},
-  {key:'rejected', label:'Rejected', calc:rows=>rows.filter(r=>r.status==='Rejected').length},
-  {key:'nc', label:'NC Registered', calc:rows=>0},
-  {key:'closed', label:'Closed', calc:rows=>rows.filter(r=>r.status==='Closed').length},
-  {key:'noaction', label:'No Action', calc:rows=>rows.filter(r=>r.status==='No Action').length},
-  {key:'withdrawal', label:'Withdrawal', calc:rows=>rows.filter(r=>r.status==='Withdrawal').length},
-  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
-];
-const HOLD_REFUND_COLS = [
-  {key:'total', label:'Total', calc:rows=>rows.length},
-  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.lost,0)},
-  {key:'holdCases', label:'No. Cases Hold', calc:rows=>rows.filter(r=>r.hold>0).length},
-  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.hold,0)},
-  {key:'refundCases', label:'No. Cases Refund', calc:rows=>rows.filter(r=>r.refund>0).length},
-  {key:'refundAmt', label:'Refund Amount', money:true, calc:rows=>rows.reduce((s,r)=>s+r.refund,0)},
-];
-const TIMELINE_COLS = [
-  {key:'total', label:'Total', calc:rows=>rows.length},
-  {key:'closedFir', label:'Closed/FIR', calc:rows=>rows.filter(r=>r.status==='Closed'||r.status==='FIR Registered').length},
-  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
-  {key:'b1w', label:'Below 1 Week', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)<=7).length},
-  {key:'b2w', label:'Below 2 Weeks', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)>7&&effectiveDays(r)<=14).length},
-  {key:'b1m', label:'Below 1 Month', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)>14&&effectiveDays(r)<=30).length},
-  {key:'a1m', label:'Above 1 Month', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)>30&&effectiveDays(r)<=60).length},
-  {key:'a2m', label:'Above 2 Months', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)>60&&effectiveDays(r)<=90).length},
-  {key:'a3m', label:'Above 3 Months', calc:rows=>rows.filter(r=>UP(r)&&effectiveDays(r)!=null&&effectiveDays(r)>90).length},
-];
-const HOLD_DETAILS_COLS = [
-  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
-  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.lost,0)},
-  {key:'noAck', label:'No. of Ack (Hold)', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).length},
-  {key:'lostAmt2', label:'Lost Amt (Hold cases)', money:true, calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).reduce((s,r)=>s+r.lost,0)},
-  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.hold,0)},
-  {key:'hBelow50k', label:'Below 50,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.hold<50000).length},
-  {key:'h50to1L', label:'50,000-1,00,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>=50000&&r.hold<100000).length},
-  {key:'hAbove1L', label:'Above 1,00,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>=100000).length},
-];
-const LOST_BAND_COLS = [
-  {key:'underprocess', label:'Under Process', calc:rows=>rows.filter(UP).length},
-  {key:'lost', label:'Lost Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.lost,0)},
-  {key:'noAck', label:'No. of Ack (Hold)', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0).length},
-  {key:'holdAmt', label:'Hold Amount', money:true, calc:rows=>rows.filter(UP).reduce((s,r)=>s+r.hold,0)},
-  {key:'lBelow50k', label:'Below 50,000', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost<50000).length},
-  {key:'l50to1L', label:'50k-1L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=50000&&r.lost<100000).length},
-  {key:'l1Lto10L', label:'1L-10L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=100000&&r.lost<1000000).length},
-  {key:'lAbove10L', label:'Above 10L', calc:rows=>rows.filter(r=>UP(r)&&r.hold>0&&r.lost>=1000000).length},
-];
-const MO_CATEGORIES = ['Credit Card Fraud','Cyber Sextortion','Dating Fraud','Digital Arrest','E commerse','Fake CustomerCare','Fake Website','Gift Fraud','Investment','Job','Loan App','Online Fraud','OTP Fraud','Part Time Job','Screenshare','Social Media','UPI Related Frauds','Blanks'];
-function classifyMo(moStr){
-  const s = (moStr||'').toLowerCase();
-  if(!s) return 'Blanks';
-  const map = [['credit card','Credit Card Fraud'],['sextortion','Cyber Sextortion'],['dating','Dating Fraud'],['digital arrest','Digital Arrest'],
-    ['e-commerce','E commerse'],['ecommerce','E commerse'],['e commerse','E commerse'],['customer care','Fake CustomerCare'],
-    ['fake website','Fake Website'],['gift','Gift Fraud'],['invest','Investment'],['job','Job'],['loan','Loan App'],
-    ['otp','OTP Fraud'],['part time','Part Time Job'],['screenshare','Screenshare'],['screen share','Screenshare'],
-    ['social media','Social Media'],['upi','UPI Related Frauds'],['online fraud','Online Fraud']];
-  for(const [k,v] of map){ if(s.includes(k)) return v; }
-  return 'Blanks';
-}
-const MO_COLS = [
-  {key:'total', label:'Total', calc:rows=>rows.length},
-  ...MO_CATEGORIES.map(cat=>({key:'mo_'+slug(cat), label:cat, calc:rows=>rows.filter(r=>classifyMo(r.mo)===cat).length}))
-];
-const REPORTS = {
-  status:   {label:'Status Summary', title:'Status of NCRP/1930 Complaints', cols:STATUS_COLS},
-  holdrefund:{label:'Hold & Refund', title:'Status of Hold & Refund Amounts', cols:HOLD_REFUND_COLS},
-  timeline: {label:'Case Ageing Timeline', title:'Status of Under Process Complaints \u2014 Ageing', cols:TIMELINE_COLS},
-  holddetail:{label:'Under Process \u2014 Hold Bands', title:'Under Process Complaints \u2014 Hold Amount Bands', cols:HOLD_DETAILS_COLS},
-  lostband: {label:'Under Process \u2014 Lost Bands', title:'Under Process Complaints \u2014 Lost Amount Bands', cols:LOST_BAND_COLS},
-  mowise:   {label:'MO-wise', title:'Modus Operandi (MO) wise Complaints', cols:MO_COLS},
-};
-let activeReport = 'status';
-function renderReportTabs(){
-  const el = document.getElementById('reportTabs');
-  el.innerHTML = Object.entries(REPORTS).map(([key,r])=>
-    '<button class="report-tab '+(key===activeReport?'active':'')+'" data-report="'+key+'">'+r.label+'</button>'
-  ).join('');
-  el.querySelectorAll('.report-tab').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ activeReport = btn.getAttribute('data-report'); renderReportTabs(); renderActiveReport(); });
-  });
-}
-function renderActiveReport(){
-  const data = getFiltered();
-  const cfg = REPORTS[activeReport];
-  const rows = buildGroupedReport(data, cfg.cols);
-  document.getElementById('reportTitle').textContent = cfg.title;
-  const dates = data.map(r=>r.date).filter(Boolean).sort();
-  document.getElementById('reportSub').textContent = dates.length ? dates[0]+' to '+dates[dates.length-1]+' \u00B7 Generated '+new Date().toLocaleDateString('en-IN') : 'No records in current filter';
-  const table = document.getElementById('reportTable');
-  const headHtml = '<thead><tr><th>S.No</th><th>Name of the PS</th>'+cfg.cols.map(c=>'<th>'+c.label+'</th>').join('')+'</tr></thead>';
-  const bodyHtml = '<tbody>'+rows.map(r=>
-    '<tr class="'+(r.isSubtotal?'subtotal-row':'')+'">'+
-      '<td>'+(r.sno!=null? r.sno : '')+'</td>'+
-      '<td>'+r.label+'</td>'+
-      cfg.cols.map(c=>'<td>'+fmtCell(r[c.key], c.money)+'</td>').join('')+
-    '</tr>').join('')+'</tbody>';
-  table.innerHTML = headHtml + bodyHtml;
-}
-function exportReportExcel(){
-  const data = getFiltered();
-  const cfg = REPORTS[activeReport];
-  const rows = buildGroupedReport(data, cfg.cols);
-  const header = ['S.No','Name of the PS', ...cfg.cols.map(c=>c.label)];
-  const aoa = [ [cfg.title], [], header ];
-  rows.forEach(r=>{ aoa.push([r.sno!=null? r.sno: '', r.label, ...cfg.cols.map(c=>r[c.key])]); });
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, cfg.label.slice(0,28));
-  XLSX.writeFile(wb, 'NCRP_'+activeReport+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
-}
-function exportReportPdf(){
-  const cfg = REPORTS[activeReport];
-  const tableHtml = document.getElementById('reportTable').outerHTML;
-  const w = window.open('', '_blank');
-  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+cfg.title+'</title>'+
-    '<style>'+
-      'body{font-family:Arial,Helvetica,sans-serif; padding:24px; color:#111;}'+
-      'h1{font-size:18px; margin:0 0 2px;} h2{font-size:12px; font-weight:normal; color:#555; margin:0 0 16px;}'+
-      'table{border-collapse:collapse; width:100%; font-size:11px;}'+
-      'th,td{border:1px solid #999; padding:5px 8px; text-align:right;}'+
-      'th:first-child, td:first-child, th:nth-child(2), td:nth-child(2){text-align:left;}'+
-      'th{background:#eee;}'+
-      'tr.subtotal-row{background:#f0e6c8; font-weight:bold;}'+
-      '.hdr{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:2px solid #7d1f2e; padding-bottom:8px;}'+
-      '.hdr b{color:#7d1f2e;}'+
-    '</style></head><body>'+
-    '<div class="hdr"><div><b>Srikakulam District Police \u2014 Cyber Cell</b><br>NCRP / 1930 Complaint Analytics</div><div>'+new Date().toLocaleString('en-IN')+'</div></div>'+
-    '<h1>'+cfg.title+'</h1>'+
-    '<h2>'+document.getElementById('reportSub').textContent+'</h2>'+
-    tableHtml+
-    '</body></html>');
-  w.document.close();
-  w.onload = ()=>{ w.focus(); w.print(); };
-  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
-}
-document.getElementById('btnReportExcel').addEventListener('click', exportReportExcel);
-document.getElementById('btnReportPdf').addEventListener('click', exportReportPdf);
+});
 
-/* ============ INIT ============ */
-FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
-renderReportTabs();
+document.querySelectorAll('#recoveryToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#recoveryToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    recoveryChartType = btn.getAttribute('data-type');
+    buildRecovery(getFiltered());
+  });
+});
+
+/* ============ INITIALIZE ============ */
+FIELDS.forEach(f => { mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+buildReportTabs();
 onFiltersChanged();
 updateDatasetChip();
 
-if(DATA.length === 0) {
-  console.log('No data found. You can click "Load from Repository" to load the Excel file from GitHub.');
-  console.log('Available files:', REPO_EXCEL_FILES);
-}
 </script>
 </body>
 </html>
+"""
+
+# Inject mock data into template
+final_html = html_template.replace("##DATA_JSON##", json.dumps(mock_data, indent=2))
+
+# Ensure output directory exists
+out_dir = r"C:\Users\seeka\.gemini\antigravity\scratch\complaints-dashboard"
+os.makedirs(out_dir, exist_ok=True)
+
+# Write index.html
+with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as f:
+    f.write(final_html)
+
+print("index.html generated successfully inside complaints-dashboard!")
