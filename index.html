@@ -387,6 +387,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
       <button class="btn" id="btnTogglePaste">📋 Paste Data</button>
       <span class="upload-status" id="uploadStatus" style="display:none;"></span>
       <button class="btn" id="btnBackup">Backup JSON</button>
+      <button class="btn" id="btnHistory">🗑 Manage Uploads</button>
       <button class="btn" id="btnResetData">Reset to Baseline</button>
     </div>
   </div>
@@ -405,6 +406,20 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
     <div style="display:flex; gap:8px; margin-top:10px;">
       <button class="btn primary" id="btnParsePaste">Add Pasted Data</button>
       <button class="btn" id="btnClearPaste">Clear Box</button>
+    </div>
+  </div>
+
+  <!-- UPLOAD HISTORY OVERLAY (hidden until toggled) -->
+  <div id="historyOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:#000000aa; z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:var(--panel); border:1px solid var(--gold); border-radius:12px; padding:20px; max-width:640px; width:92%; max-height:80vh; display:flex; flex-direction:column; box-shadow:0 20px 40px #00000088;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <h3 style="margin:0; font-family:var(--font-display); color:var(--gold-light); font-size:16px;">Manage Uploads</h3>
+        <button class="btn" id="btnCloseHistory">Close</button>
+      </div>
+      <p style="margin:0 0 10px; font-size:11.5px; color:var(--text-dim);">
+        Every file/paste you've added in this browser, most recent first. "Remove" deletes only the complaints that upload <b>added</b> (records it merely updated are left untouched). To wipe everything and start over, use "Reset to Baseline" instead.
+      </p>
+      <div id="historyList" style="overflow-y:auto; border:1px solid var(--panel-border); border-radius:8px;"></div>
     </div>
   </div>
 
@@ -526,6 +541,7 @@ table.report-table tr:hover:not(.subtotal-row){background:#141d33;}
       <table id="dataTable">
         <thead>
           <tr>
+            <th style="width:26px;"></th>
             <th style="width:26px;"></th>
             <th style="width:26px;"></th>
             <th data-k="sl">SL</th>
@@ -1025,8 +1041,8 @@ function parseTotalFormatRows(aoa, aoaRaw, headerRowIdx){
   const headers = aoa[headerRowIdx].map(h=>cleanStr(h));
   const colIdx = {};
   Object.entries(COLUMN_NAMES).forEach(([key,name])=>{ colIdx[key] = findHeaderIdx(headers, name); });
-  console.log('Found column indices:', Object.entries(colIdx).filter(([k,v])=>v>=0).map(([k,v])=>k+': '+v).join(', '));
-  if(colIdx.ackNo < 0) console.warn('Acknowledgement No column not found! Available headers:', headers.join(', '));
+  if(colIdx.sl < 0) console.warn('Could not find a Serial No. column in this file — check the header row.');
+  if(colIdx.ackNo < 0) console.warn('Could not find an Acknowledgement No. column — records will be matched by name/PS/date instead, which is less reliable for daily updates.');
   const rows = [];
   for(let r=headerRowIdx+1; r<aoaRaw.length; r++){
     const row = aoaRaw[r];
@@ -1182,7 +1198,8 @@ function fillDefaults(row){
   return row;
 }
 
-function mergeNewRows(newRows){
+function mergeNewRows(newRows, sourceLabel){
+  const batchId = 'b'+Date.now()+Math.random().toString(36).slice(2,6);
   const keyOf = r => {
     const ack = cleanStr(r.ackNo);
     if(ack) return 'ACK::' + ack.toLowerCase();
@@ -1200,6 +1217,7 @@ function mergeNewRows(newRows){
       added++;
       const filled = fillDefaults({...r});
       filled._id = idCounter++;
+      filled._batch = batchId;
       map.set(k, filled);
     }
   });
@@ -1207,13 +1225,70 @@ function mergeNewRows(newRows){
   ensureIds(DATA);
   saveStoredData();
   const meta = loadMeta();
-  meta.uploads.push({ts:new Date().toISOString(), added, updated, fileRows:newRows.length, format:newRows._format||'unknown'});
+  meta.uploads.push({batchId, ts:new Date().toISOString(), added, updated, fileRows:newRows.length, format:newRows._format||'unknown', source:sourceLabel||'Unnamed upload'});
   saveMeta(meta);
   rebuildOptionLists();
   FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
   onFiltersChanged();
   updateDatasetChip();
-  return {added, updated, total: DATA.length, format:newRows._format||'unknown'};
+  return {added, updated, total: DATA.length, format:newRows._format||'unknown', batchId};
+}
+
+function deleteRow(id){
+  const row = DATA.find(r=>r._id===id);
+  if(!row) return;
+  if(!confirm('Delete complaint '+(row.ackNo? 'Ack No. '+row.ackNo : 'SL '+row.sl)+'? This cannot be undone.')) return;
+  DATA = DATA.filter(r=>r._id!==id);
+  saveStoredData();
+  rebuildOptionLists();
+  FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+  expandedRows.delete(String(id));
+  editingRows.delete(id);
+  onFiltersChanged();
+  updateDatasetChip();
+  showToast('Record deleted', 'The complaint has been removed from this browser\'s copy of the dataset.');
+}
+
+function deleteBatch(batchId){
+  const count = DATA.filter(r=>r._batch===batchId).length;
+  if(count===0){ alert('No records from this upload remain (they may have already been edited/merged into other uploads or deleted individually).'); return; }
+  if(!confirm('Remove all '+count+' record(s) added by this upload? Records it only updated (not added) will be kept as-is. This cannot be undone.')) return;
+  DATA = DATA.filter(r=>r._batch!==batchId);
+  saveStoredData();
+  const meta = loadMeta();
+  meta.uploads = meta.uploads.filter(u=>u.batchId!==batchId);
+  saveMeta(meta);
+  rebuildOptionLists();
+  FIELDS.forEach(f=>{ mselRefs[f] = buildMultiSelect(f, MSEL_ID_MAP[f]); });
+  onFiltersChanged();
+  updateDatasetChip();
+  renderUploadHistory();
+  showToast('Upload removed', count+' record(s) from that upload have been deleted.');
+}
+
+function renderUploadHistory(){
+  const body = document.getElementById('historyList');
+  if(!body) return;
+  const meta = loadMeta();
+  const uploads = (meta.uploads||[]).slice().reverse();
+  if(uploads.length===0){
+    body.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text-faint); font-size:12.5px;">No uploads yet in this browser.</div>';
+    return;
+  }
+  body.innerHTML = uploads.map(u=>{
+    const liveCount = u.batchId ? DATA.filter(r=>r._batch===u.batchId).length : 0;
+    const when = new Date(u.ts).toLocaleString('en-IN');
+    return `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:1px solid var(--panel-border);">
+      <div style="min-width:0;">
+        <div style="font-size:12.5px; color:var(--text); font-weight:600;">${(u.source||'Unnamed upload')} <span style="color:var(--gold); font-size:10.5px; font-family:var(--font-utility); text-transform:uppercase; margin-left:6px;">${u.format||''}</span></div>
+        <div style="font-size:11px; color:var(--text-faint); margin-top:2px;">${when} &middot; ${u.added} added, ${u.updated} updated ${liveCount!==u.added? '&middot; <span style="color:var(--warn)">'+liveCount+' still present</span>':''}</div>
+      </div>
+      <button class="btn" style="flex-shrink:0;" data-undo-batch="${u.batchId||''}" ${!u.batchId?'disabled':''}>Remove</button>
+    </div>`;
+  }).join('');
+  body.querySelectorAll('[data-undo-batch]').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteBatch(btn.getAttribute('data-undo-batch')));
+  });
 }
 
 function updateDatasetChip(){
@@ -1261,7 +1336,7 @@ async function loadSingleRepoFile(filePath) {
     const workbook = XLSX.read(data, {type:'array', cellDates:true});
     const newRows = parseWorkbookToRows(workbook);
     if(newRows.length === 0) throw new Error('No complaint rows found in the Excel file.');
-    const result = mergeNewRows(newRows);
+    const result = mergeNewRows(newRows, 'Repo: '+filePath);
     statusEl.className = 'upload-status ok';
     statusEl.textContent = `✓ ${result.added} new, ${result.updated} updated from ${filePath}`;
     showToast('Repository data loaded',
@@ -1316,7 +1391,7 @@ function handleUploadFile(file){
       const workbook = XLSX.read(data, {type:'array', cellDates:true});
       const newRows = parseWorkbookToRows(workbook);
       if(newRows.length===0){ throw new Error('No complaint rows found in this file.'); }
-      const result = mergeNewRows(newRows);
+      const result = mergeNewRows(newRows, file.name);
       statusEl.className='upload-status ok';
       statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated ('+result.format+' format)';
       showToast('Dataset updated',
@@ -1353,7 +1428,7 @@ document.getElementById('btnParsePaste').addEventListener('click', ()=>{
   try{
     const newRows = parsePastedText(text);
     if(newRows.length===0){ throw new Error('No complaint rows detected in the pasted text.'); }
-    const result = mergeNewRows(newRows);
+    const result = mergeNewRows(newRows, 'Pasted data');
     statusEl.className='upload-status ok';
     statusEl.textContent = '\u2713 ' + result.added + ' new, ' + result.updated + ' updated ('+result.format+' format)';
     showToast('Pasted data added',
@@ -1376,6 +1451,16 @@ const dropZone = document.getElementById('dropZone');
 ['dragover','dragenter'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.add('drag'); }));
 ['dragleave','drop'].forEach(evt=> dropZone.addEventListener(evt, e=>{ e.preventDefault(); dropZone.classList.remove('drag'); }));
 dropZone.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer.files.length) handleUploadFile(e.dataTransfer.files[0]); });
+document.getElementById('btnHistory').addEventListener('click', ()=>{
+  renderUploadHistory();
+  document.getElementById('historyOverlay').style.display = 'flex';
+});
+document.getElementById('btnCloseHistory').addEventListener('click', ()=>{
+  document.getElementById('historyOverlay').style.display = 'none';
+});
+document.getElementById('historyOverlay').addEventListener('click', (e)=>{
+  if(e.target.id==='historyOverlay') document.getElementById('historyOverlay').style.display = 'none';
+});
 document.getElementById('btnResetData').addEventListener('click', ()=>{
   if(!confirm('Reset to the original baseline dataset? This removes all data merged from your uploads in this browser.')) return;
   DATA = JSON.parse(JSON.stringify(BASE_DATA));
@@ -1773,7 +1858,7 @@ function renderTable(data){
   document.getElementById('tblCount').textContent = fmtNum(sorted.length)+' records';
   const tbody = document.getElementById('tblBody');
   if(pageData.length===0){
-    tbody.innerHTML = '<tr><td colspan="16" class="empty-state">No complaints loaded yet \u2014 click "Load from Repository" or upload an Excel file above to get started.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="empty-state">No complaints loaded yet \u2014 click "Load from Repository" or upload an Excel file above to get started.</td></tr>';
   } else {
     tbody.innerHTML = pageData.map(r=>{
       const statusCls = 'status-'+slug(r.status);
@@ -1784,6 +1869,7 @@ function renderTable(data){
       let html = '<tr>'+
         '<td class="expand-btn" data-row="'+rowId+'">'+(isOpen?'\u2212':'+')+'</td>'+
         '<td class="edit-btn" data-edit-row="'+r._id+'">\u270E</td>'+
+        '<td class="edit-btn" data-delete-row="'+r._id+'" title="Delete this complaint" style="color:var(--bad);">\u{1F5D1}</td>'+
         '<td>'+(r.sl!=null? Math.round(r.sl):'')+'</td>'+
         '<td>'+(r.date||'-')+'</td>'+
         '<td class="ack-no">'+(r.ackNo||'<span style="color:var(--warn);font-style:italic;">N/A</span>')+'</td>'+
@@ -1800,9 +1886,9 @@ function renderTable(data){
         '<td>'+(ageDays!=null? ageDays:'-')+'</td>'+
       '</tr>';
       if(isEditing){
-        html += '<tr class="row-detail"><td></td><td colspan="15" data-row-edit="'+r._id+'">'+renderEditForm(r)+'</td></tr>';
+        html += '<tr class="row-detail"><td></td><td colspan="16" data-row-edit="'+r._id+'">'+renderEditForm(r)+'</td></tr>';
       } else if(isOpen){
-        html += '<tr class="row-detail"><td></td><td colspan="15">'+
+        html += '<tr class="row-detail"><td></td><td colspan="16">'+
           '<div class="rd-grid">'+
             '<div class="rd-item"><b>Sub-Division</b>'+(r.subdivision||'-')+'</div>'+
             '<div class="rd-item"><b>Complainant</b>'+(r.complainant||'-')+'</div>'+
@@ -1826,12 +1912,15 @@ function renderTable(data){
         renderTable(getFiltered());
       });
     });
-    tbody.querySelectorAll('.edit-btn').forEach(btn=>{
+    tbody.querySelectorAll('[data-edit-row]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const id = +btn.getAttribute('data-edit-row');
         if(editingRows.has(id)) editingRows.delete(id); else { editingRows.add(id); expandedRows.delete(String(id)); }
         renderTable(getFiltered());
       });
+    });
+    tbody.querySelectorAll('[data-delete-row]').forEach(btn=>{
+      btn.addEventListener('click', ()=> deleteRow(+btn.getAttribute('data-delete-row')));
     });
     tbody.querySelectorAll('[data-save]').forEach(btn=>{
       btn.addEventListener('click', ()=> saveRowEdit(+btn.getAttribute('data-save')));
